@@ -95,12 +95,20 @@ pick(300, slice("bundle"), function()
   local s = R("radial_state", 1)
   return s and s.depth == 2 and s.count == 2 and not s.holding
 end, "bundle")
-steps[335] = function(p) shot(p, "ez-gui-2-bundle.png") R("close_radial", 1) end
+steps[335] = function(p) shot(p, "ez-gui-2-bundle.png") end
+steps[337] = function(p) R("close_radial", 1) end
 steps[340] = function(p)
   R("open_editor", 1)
 end
 steps[345] = function(p)
   check("editor open", p.gui.screen.ezactions_editor ~= nil)
+  local drag = 0
+  local function walk(el)
+    if el.tags.fstd_drag then drag = drag + 1 end
+    for _, c in pairs(el.children) do walk(c) end
+  end
+  walk(p.gui.screen.ezactions_editor)
+  check("editor rows draggable (fse-std)", drag == 7, drag)
   shot(p, "ez-gui-3-editor.png")
 end
 steps[350] = function(p)
@@ -157,7 +165,28 @@ steps[366] = function(p)
     check("new " .. kind .. " form opens", ok, err)
   end
 end
-steps[370] = function(p)
+-- the drawn ring's styles and animations, screenshots ez-gui-5-<style>.png
+local STYLES = {{"solid", "WIPE"}, {"segmented", "GROW"}, {"outline", "NONE"}, {"glass", "FADE"}}
+for k, v in ipairs(STYLES) do
+  local t = 370 + k * 20
+  steps[t] = function(p)
+    local items = {}
+    for i = 1, 8 do
+      items[i] = {title = "Slice " .. i, icon = "item/iron-chest", action = {type = "COMMAND", command = "eztest " .. i}}
+    end
+    R("open_temporary_radial", 1, J(items), {designStyle = v[1], openStyle = v[2], sliceGapDeg = 3,
+                                            hoverColor = v[1] == "glass" and -16733441 or nil})
+    local s = R("radial_state", 1)
+    check(v[1] .. ": drawn ring", s and s.drawn and s.ring, s and J(s))
+    mock({x = math.floor(s.x + 100), y = math.floor(s.y + 20)})
+  end
+  steps[t + 12] = function(p) shot(p, "ez-gui-5-" .. v[1] .. ".png") end
+  steps[t + 14] = function(p)
+    check(v[1] .. ": slice under the mouse", R("radial_state", 1).selected == 3, R("radial_state", 1).selected)
+    R("close_radial", 1)
+  end
+end
+steps[470] = function(p)
   mock()
   check("seen", true, table.concat(seen, ","))
   helpers.write_file("ez-gui.txt", table.concat(out, "\n"))

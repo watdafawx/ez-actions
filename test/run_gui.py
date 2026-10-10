@@ -19,7 +19,8 @@ shutil.rmtree(MODS, ignore_errors=True)
 MODS.mkdir(parents=True)
 shutil.copytree(MOD, MODS / "ez-actions", ignore=shutil.ignore_patterns("test", ".git"))
 shutil.copytree(HERE / "ez-guitest", MODS / "ez-guitest")
-names = ["base", "elevated-rails", "quality", "space-age", "ez-actions", "ez-guitest"]
+shutil.copytree(MOD.parents[1] / "fse" / "mods" / "fse-std", MODS / "fse-std")  # (drag & drop in the editor)
+names = ["base", "elevated-rails", "quality", "space-age", "fse-std", "ez-actions", "ez-guitest"]
 (MODS / "mod-list.json").write_text(json.dumps({"mods": [{"name": n, "enabled": True} for n in names]}))
 for f in OUT.glob("ez-gui*"):  # (ready, done, results, screenshots)
     f.unlink()

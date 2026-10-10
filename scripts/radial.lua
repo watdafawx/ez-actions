@@ -4,6 +4,7 @@
 -- back out of a bundle.
 local model = require("scripts.model")
 local actions = require("scripts.actions")
+local ring = require("scripts.ring")
 local R = {}
 
 local DESIGN = {slot = "slot_button", button = "slot_sized_button", tool = "tool_button"}
@@ -17,7 +18,42 @@ local STYLE_KEYS = {deadzone = "deadzone", baseOuterRadius = "radius", radius = 
                     scalePerItem = "scale_per_item", designStyle = "design", design = "design",
                     textColor = "text_color", animationsEnabled = "animations", animOpenClose = "anim_open",
                     animHover = "anim_hover", openCloseMs = "open_ms", hoverGrowPct = "hover_grow",
-                    openStyle = "open_style", openDirection = "direction", hoverStyle = "hover_style"}
+                    openStyle = "open_style", openDirection = "direction", hoverStyle = "hover_style",
+                    ringColor = "ring_color", ring_color = "ring_color", hoverColor = "hover_color",
+                    hover_color = "hover_color", borderColor = "border_color", border_color = "border_color",
+                    sliceGapDeg = "gap", gap = "gap"}
+
+-- (a key binding as a virtual-key code, to see when it is let go: letters and digits are their ASCII codes)
+local VK = {SPACE = 32, TAB = 9, RETURN = 13, ESCAPE = 27, BACKSPACE = 8, GRAVE = 192, MINUS = 189, EQUALS = 187,
+            LEFTBRACKET = 219, RIGHTBRACKET = 221, BACKSLASH = 220, SEMICOLON = 186, APOSTROPHE = 222, COMMA = 188,
+            PERIOD = 190, SLASH = 191, CAPSLOCK = 20, LSHIFT = 160, RSHIFT = 161, LCTRL = 162, RCTRL = 163, LALT = 164,
+            RALT = 165, INSERT = 45, DELETE = 46, HOME = 36, END = 35, PAGEUP = 33, PAGEDOWN = 34, UP = 38, DOWN = 40,
+            LEFT = 37, RIGHT = 39}
+local MOUSE_VK = {["button-1"] = 1, ["button-2"] = 2, ["button-3"] = 4, ["button-4"] = 5, ["button-5"] = 6}
+
+local function vk_of(key)
+  if key.mouse then return MOUSE_VK[key.mouse] end
+  local n = (key.scancode or ""):gsub("^SDL_SCANCODE_", "")
+  if n:match("^[A-Z0-9]$") then return n:byte() end
+  local f = n:match("^F(%d+)$")
+  if f then return 0x6F + tonumber(f) end
+  local kp = n:match("^KP_(%d)$")
+  if kp then return 0x60 + tonumber(kp) end
+  return VK[n]
+end
+
+--- the virtual key of what a control (the radial's own) is bound to, from FSE's control list
+local function bound_vk(control)
+  local out = control and actions.call("input", "controls", "")
+  for _, c in ipairs(out and helpers.json_to_table(out) or {}) do
+    if c.name == control then
+      for _, k in ipairs(c.keys or {}) do
+        local vk = vk_of(k)
+        if vk then return vk end
+      end
+    end
+  end
+end
 
 local function config(player, style)
   local s = player.mod_settings
@@ -27,7 +63,8 @@ local function config(player, style)
              text_color = v("text-color"), animations = v("animations"), anim_open = v("anim-open"),
              anim_hover = v("anim-hover"), open_ms = v("open-ms"), hover_grow = v("hover-grow"),
              open_style = v("open-style"), direction = v("direction"), hover_style = v("hover-style"),
-             label = v("show-hover-label"), hold = v("hold-release")}
+             label = v("show-hover-label"), hold = v("hold-release"), gap = v("slice-gap"),
+             ring_color = v("ring-color"), hover_color = v("hover-color"), border_color = v("border-color")}
   for k, val in pairs(style or {}) do
     local key = STYLE_KEYS[k]
     if key then
@@ -36,11 +73,14 @@ local function config(player, style)
       c[key] = val
     end
   end
-  if type(c.text_color) == "number" then -- (ARGB int, as EZ Actions stores colours)
-    local n = c.text_color % 0x100000000
-    c.text_color = {r = math.floor(n / 0x10000) % 256 / 255, g = math.floor(n / 0x100) % 256 / 255, b = n % 256 / 255}
+  for _, k in ipairs({"text_color", "ring_color", "hover_color", "border_color"}) do
+    if type(c[k]) == "number" then -- (ARGB int, as EZ Actions stores colours)
+      local n = c[k] % 0x100000000
+      c[k] = {r = math.floor(n / 0x10000) % 256 / 255, g = math.floor(n / 0x100) % 256 / 255, b = n % 256 / 255,
+              a = math.floor(n / 0x1000000) / 255}
+    end
   end
-  if c.open_style == "fade" then c.open_style = "grow" end
+  if type(c.gap) == "number" then c.gap = c.gap <= 0 and "none" or (c.gap <= 3 and "small" or "large") end
   if c.hover_style == "fill-only" then c.hover_style = "fill" elseif c.hover_style == "scale-only" then c.hover_style = "scale" end
   return c
 end
@@ -86,20 +126,30 @@ end
 local function destroy(st)
   for _, b in pairs(st.buttons or {}) do if b.valid then b.destroy() end end
   if st.center and st.center.valid then st.center.destroy() end
+  ring.destroy(st)
   st.buttons, st.center = {}, nil
 end
 
 local function ease(t) return 1 - (1 - t) * (1 - t) end
 
 --- where every button goes this tick (animation and the hovered one's growth)
+--- the ring's outer radius in pixels and the open animation's progress (0..1)
+local function geometry(player, st)
+  local c, n = st.cfg, #st.items
+  local r = (c.radius + math.max(0, n - c.scale_start) * c.scale_per_item) * player.display_scale
+  local dur = math.max(1, c.open_ms / 1000 * 60)
+  local t = (c.animations and c.anim_open and c.open_style ~= "none") and math.min(1, (game.tick - st.opened) / dur) or 1
+  return r, t
+end
+
 local function layout(player, st)
   local c, n = st.cfg, #st.items
   local scale = player.display_scale
-  local r = (c.radius + math.max(0, n - c.scale_start) * c.scale_per_item) * scale
-  local dur = math.max(1, c.open_ms / 1000 * 60)
-  local t = (c.animations and c.anim_open and c.open_style ~= "none") and math.min(1, (game.tick - st.opened) / dur) or 1
+  local r, t = geometry(player, st)
   st.animating = t < 1
   local grow = (c.open_style == "grow") and (0.35 + 0.65 * ease(t)) or 1
+  local outer = r
+  if st.drawn then r = r * (1 + ring.INNER) / 2 end -- (icons on the middle of the drawn ring)
   for i, b in ipairs(st.buttons) do
     if b.valid then
       local order = (c.direction == "ccw") and ((n - i + 1) % n) or (i - 1)
@@ -120,6 +170,7 @@ local function layout(player, st)
     local w, h = st.center_w * scale, st.center_h * scale
     st.center.location = {math.floor(st.x - w / 2), math.floor(st.y - h / 2)}
   end
+  if st.drawn then ring.update(player, st, outer * grow, t) end
 end
 
 local function set_label(st)
@@ -145,7 +196,7 @@ local function build(player, st)
   st.opened = game.tick
   local screen, c = player.gui.screen, st.cfg
   local n = #st.items
-  local style = DESIGN[c.design] or "slot_button"
+  local style = st.drawn and "transparent_slot" or DESIGN[c.design] or "slot_button"
   for i, item in ipairs(st.items) do
     local b = screen.add({type = "sprite-button", style = style, sprite = icon_of(item), tooltip = tooltip(item),
                           raise_hover_events = true, tags = {ezactions_slice = i},
@@ -153,7 +204,8 @@ local function build(player, st)
     st.buttons[i] = b
   end
   local r = c.radius + math.max(0, n - c.scale_start) * c.scale_per_item
-  st.center_w = math.max(120, 2 * r - c.button_size - 8)
+  if st.drawn then ring.build(player, st) end
+  st.center_w = math.max(120, st.drawn and 2 * r * ring.INNER - 12 or 2 * r - c.button_size - 8)
   st.center_h = #st.pages > 1 and 84 or 52
   local f = screen.add({type = "frame", name = "ezactions_radial_" .. player.index, style = "invisible_frame",
                         direction = "vertical"})
@@ -190,7 +242,8 @@ function R.is_open(player)
   return state(player.index) ~= nil
 end
 
---- opts: {pages = {list}, root_filter = bool, style = {}, x, y (pixels), hold = bool, preview = bool, temp = bool}
+--- opts: {pages = {list}, root_filter = bool, style = {}, x, y (pixels), hold = bool, control = the custom input that
+--- opened it (its key is the one to let go of), preview = bool, temp = bool}
 function R.open(player, opts)
   R.close(player)
   local res = player.display_resolution
@@ -205,6 +258,11 @@ function R.open(player, opts)
   local m = ((c.radius + math.max(0, n - c.scale_start) * c.scale_per_item) + c.button_size) * scale
   st.x = math.max(m, math.min(res.width - m, st.x))
   st.y = math.max(m, math.min(res.height - m, st.y))
+  st.drawn = ring.possible(player, st.cfg)
+  if st.drawn then
+    -- (the drawn ring hangs on the character, which the camera keeps in the middle of the screen)
+    st.x, st.y = res.width / 2, res.height / 2
+  end
   storage.radial = storage.radial or {}
   storage.radial[player.index] = st
   st.mouse = mouse_mode()
@@ -219,6 +277,13 @@ function R.open(player, opts)
       end
     end
     st.hold = #keys > 0 and keys or (#mods > 0 and mods or nil)
+    -- (better: the key the radial is bound to, while it is still down; after a quick tap it stays open for a click)
+    local vk = bound_vk(opts.control)
+    if vk then
+      for _, k in ipairs(inp and inp.keys or {}) do
+        if k == vk then st.hold = {vk} end
+      end
+    end
   end
   build(player, st)
   return true
@@ -287,7 +352,11 @@ function R.tick()
       st = state(pi)
       if st then
         if st.preview and game.tick - st.opened > st.cfg.open_ms / 1000 * 60 + 60 then st.opened = game.tick end
-        if st.animating or st.preview then layout(player, st) end
+        if st.animating or st.preview then
+          layout(player, st)
+        elseif st.drawn then
+          ring.update(player, st, (geometry(player, st)), 1)
+        end
       end
     end
   end

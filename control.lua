@@ -7,6 +7,7 @@ local function player_of(e) return game.get_player(e.player_index) end
 
 local function open_main(player, e, hold)
   return radial.open(player, {pages = {model.data(player.index).menu}, root_filter = true, hold = hold,
+                              control = e and e.input_name,
                               x = e and e.cursor_display_location and e.cursor_display_location.x,
                               y = e and e.cursor_display_location and e.cursor_display_location.y})
 end
@@ -20,7 +21,7 @@ local function find_bundle(pi, key)
 end
 
 local function open_bundle(player, bundle, e, hold)
-  return radial.open(player, {pages = {bundle.children}, hold = hold,
+  return radial.open(player, {pages = {bundle.children}, hold = hold, control = e and e.input_name,
                               x = e and e.cursor_display_location and e.cursor_display_location.x,
                               y = e and e.cursor_display_location and e.cursor_display_location.y})
 end
@@ -58,7 +59,14 @@ script.on_event(defines.events.on_lua_shortcut, function(e)
   end
 end)
 
+local dnd_click = editor.dnd and editor.dnd.handlers[defines.events.on_gui_click]
+local dnd_tick = editor.dnd and editor.dnd.handlers[defines.events.on_tick]
+
 script.on_event(defines.events.on_gui_click, function(e)
+  if dnd_click then
+    dnd_click(e)
+    if editor.dnd.handled(e) then return end
+  end
   if not e.element.valid then return end
   local tags = e.element.tags
   if tags.ezactions_slice or tags.ezactions_back then return radial.on_click(e) end
@@ -76,6 +84,7 @@ script.on_event(defines.events.on_gui_checked_state_changed, function(e)
 end)
 
 script.on_event(defines.events.on_tick, function(e)
+  if dnd_tick then dnd_tick(e) end
   radial.tick()
   actions.tick(e.tick)
   editor.tick()
@@ -170,6 +179,7 @@ local api = {
     model.changed(pi, path, "moved")
     return true
   end,
+  move_before = function(pi, id, target_id) return model.move_before(pi, id, target_id) end,
   move_to = function(pi, id, target_path)
     return model.move_to(pi, id, list_of(pi, target_path), target_path)
   end,
@@ -268,7 +278,8 @@ local api = {
   --- the open radial: {x, y (pixels), count, selected, holding, depth}, or nil
   radial_state = function(pi)
     local s = storage.radial and storage.radial[pi]
-    return s and {x = s.x, y = s.y, count = #s.items, selected = s.sel, holding = s.hold ~= nil, depth = #s.pages}
+    return s and {x = s.x, y = s.y, count = #s.items, selected = s.sel, holding = s.hold ~= nil, depth = #s.pages,
+                  drawn = s.drawn == true, ring = s.ring ~= nil and s.ring.hover ~= nil}
   end,
   -- events: script.on_event(remote.call("ezactions", "events").menu_changed, fn)
   events = function() return {menu_changed = model.changed_event, imported = model.imported_event} end,

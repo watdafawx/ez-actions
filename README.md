@@ -27,23 +27,29 @@ for anything you do often. Hold **U**, point the mouse at a slice, let go.
 
 ## Using it
 
-- **U** opens the radial at the mouse (kept on screen near edges). With FSE in single player the mouse direction
-  picks the slice and letting go of U runs it, so you never need to touch a button; with the
-  *Let go of the key to choose* setting off, without FSE, or in multiplayer, hover a slice and click it or press U
-  again. A bundle opens in place and then waits for a click. Right-click, Escape or the arrow in the middle goes back
-  out; at the top they close.
+- **U** opens the radial in the middle of the screen: a translucent ring drawn around your character with the icons
+  on it, the slice under the mouse lit and its title in the middle (styles below).
+- **Release to activate** (with FSE, single player): hold the key, point at a slice, let go of the key and it runs.
+  Whatever the radial is bound to counts (a mouse button too). Letting go over a bundle opens it, and inside a
+  bundle you click. After a quick tap, with the setting off, without FSE, or in multiplayer: click a slice, or press
+  the key again over it. Right-click, Escape or the arrow in the middle goes back out; at the top they close.
 - You keep walking while it is open.
 - **Shift+U** or the shortcut-bar button opens the **editor**: add, edit, remove, reorder (▲▼), filter (Ctrl+F),
-  Delete removes the selected entry. Click selects, click again edits, right-click opens a bundle. With an entry
-  selected, the arrow beside a bundle (or a *Back to…* row) moves it there. Locked entries (set through JSON or the
+  Delete removes the selected entry. Click selects, click again edits, right-click opens a bundle.
+  **Drag & drop** (FSE with `fse-std`, single player): drag a row onto another row to put it there, onto a bundle to
+  move it inside, onto a *Back to…* row to move it up. Without it: with an entry selected, the arrow beside a bundle
+  (or a *Back to…* row) moves it there. Locked entries (set through JSON or the
   API) can't be removed in game.
 - **Export** puts the whole menu as JSON on the clipboard (with FSE) and in a box; **Import** reads the clipboard (or
   a pasted box) and adds to the current page, replacing entries with the same id; **Replace all** swaps the menu.
   EZ Actions' own field names (`hideFromMainRadial`, `delayTicks`, `cycleCommands`, ...) are read too.
 - **Preview** opens the radial looping its open animation, to tune the look.
-- Look and feel are per-player mod settings: open animation (wipe / grow, direction, duration), hover style
-  (light, grow, both), hover label, deadzone, radius, slice size, growing the ring past N slices, slice style, label
-  colour.
+- Look and feel are per-player mod settings:
+  - ring style: **solid**, **segmented**, **outline**, **glass** (drawn like EZ Actions'), or **slot / button / tool**
+    (Factorio buttons in a circle, which multiplayer and playing without a character always use);
+  - ring, hover, border and label colours (alpha included), slice gap, radius, icon size, growing the ring past N
+    slices, deadzone;
+  - open animation **wipe / fade / grow** (direction, duration), hover **light / grow / both**, hover label.
 
 Each player has their own menu (it lives in the save).
 
@@ -58,8 +64,9 @@ New FSE pieces this mod added: `std.press` / `std.key_info` / held keys in `std.
 
 ## Differences from the Minecraft mod
 
-- The ring is made of Factorio slot buttons, not a drawn ring, so ring/hover/border colours and the
-  segmented/outline/glass designs became a choice of button style; *fade* opening became *grow*.
+- The drawn ring is world rendering fixed to your character (Factorio's GUI can't draw arcs), so it needs a
+  character and single player; it opens in the middle of the screen. Ring thickness is fixed (40 % of the radius),
+  and the slice gap has three sizes.
 - Icons come from the game's signal picker (items, fluids, virtual signals, entities, recipes, ...); there is no
   custom icon folder (Factorio loads images only at startup).
 - Bundle keys are ten fixed key slots (Factorio can't add keybinds at run time); EZ Actions needed a restart instead.

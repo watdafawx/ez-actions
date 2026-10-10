@@ -44,6 +44,20 @@ script.on_event(defines.events.on_tick, function(e)
              '{"id":"c1","title":"Cmds","action":{"type":"COMMAND","command":"a\nb","delayTicks":5,"cycleCommands":false}}]}]'
   check("EZ Actions field names", R("import_into", pi, {}, ez) == 1 and R("find_by_id", pi, "bundle_abc").hide == true
         and R("find_by_id", pi, "c1").action_json:find('"delay":5', 1, true) ~= nil)
+  -- dragging a row onto a row takes its place (down: after it, up: before it)
+  R("replace_all", pi, "[]")
+  local ids = {}
+  for _, t in ipairs({"a", "b", "c", "d"}) do
+    ids[t] = R("add_action", pi, {}, t, "", nil, {type = "COMMAND", command = "x"}, false)
+  end
+  local function order()
+    local o = ""
+    for _, it in ipairs(R("list", pi, {})) do o = o .. it.title end
+    return o
+  end
+  check("drag a onto c: bcad", R("move_before", pi, ids.a, ids.c) and order() == "bcad", order())
+  check("drag d onto b: dbca", R("move_before", pi, ids.d, ids.b) and order() == "dbca", order())
+  check("drag onto itself: no change", not R("move_before", pi, ids.d, ids.d) and order() == "dbca")
   check("menu_changed raised", changes > 5, changes)
   helpers.write_file("ez-test.txt", table.concat(out, "\n"))
 end)

@@ -205,6 +205,20 @@ function M.move_to(pi, id, target_list, target_path)
   return true
 end
 
+--- puts an item where another one is in the same list (dragging a row onto a row): after it when moving down,
+--- before it when moving up, so the dragged row takes the target's place
+function M.move_before(pi, id, target_id)
+  local item, list, i, path = M.find(pi, id)
+  local target, tlist = M.find(pi, target_id)
+  if not item or not target or list ~= tlist or id == target_id then return false end
+  table.remove(list, i)
+  local j
+  for k, x in ipairs(list) do if x.id == target_id then j = k end end
+  table.insert(list, i <= j and j + 1 or j, item)
+  M.changed(pi, path, "moved")
+  return true
+end
+
 function M.sprite(icon)
   if icon and helpers.is_valid_sprite_path(icon) then return icon end
 end

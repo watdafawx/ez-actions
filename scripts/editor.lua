@@ -5,6 +5,13 @@ local model = require("scripts.model")
 local actions = require("scripts.actions")
 local E = {}
 
+-- drag & drop rows (fse-std with the FSE loader, single player): onto a bundle moves into it, onto a row takes its
+-- place, onto a "back" row moves up. Without it the arrow buttons do the same.
+local dnd, input
+if script.active_mods["fse-std"] then dnd, input = require("__fse-std__/dnd"), require("__fse-std__/input") end
+local function can_drag() return dnd ~= nil and input.native() end
+E.dnd = dnd
+
 local SOURCES = {"control", "shortcut", "hotkey"}
 local SLOT_NAMES = {armor = {"ezactions.slot-armor"}, gun1 = {"ezactions.slot-gun", 1}, gun2 = {"ezactions.slot-gun", 2},
                     gun3 = {"ezactions.slot-gun", 3}, ammo1 = {"ezactions.slot-ammo", 1}, ammo2 = {"ezactions.slot-ammo", 2},
@@ -64,10 +71,12 @@ local function row(parent, caption, tags, selected, move_tags, tooltip)
   b.style.horizontally_stretchable = true
   b.style.maximal_width = 1000
   b.toggled = selected
+  if can_drag() then dnd.droppable(b, "ezactions-row") end
   if move_tags then
     flow.add({type = "sprite-button", style = "mini_button", sprite = "utility/enter", tags = move_tags,
               tooltip = {"ezactions.move-here"}})
   end
+  return b
 end
 
 local function fill_list(player, s)
@@ -91,8 +100,11 @@ local function fill_list(player, s)
       local caption = {"", rich_icon(item), item.locked and "[color=255,200,80](locked)[/color] " or "", item.title,
                        "  [color=128,128,128]", type_label(item), "[/color]"}
       local can_move_in = item.children and sel_here and s.sel ~= item.id
-      row(pane, caption, {ezactions_row = item.id, ezactions_index = i}, s.sel == item.id,
-          can_move_in and {ezactions_move_into = item.id} or nil, item.note ~= "" and item.note or nil)
+      local b = row(pane, caption, {ezactions_row = item.id, ezactions_index = i}, s.sel == item.id,
+                    can_move_in and {ezactions_move_into = item.id} or nil, item.note ~= "" and item.note or nil)
+      if can_drag() then
+        dnd.draggable(b, {kind = "ezactions-row", id = item.id, sprite = model.sprite(item.icon), caption = item.title})
+      end
     end
   end
   if #list == 0 then pane.add({type = "label", caption = {"ezactions.page-empty"}}) end
@@ -682,6 +694,34 @@ function E.tick()
       end
     end
   end
+end
+
+--- a row dropped on a row: into a bundle, to a "back" row's page, or into the target's place
+function E.drop(player, id, tags)
+  local s, pi = st(player.index), player.index
+  if not s or not id or id == tags.ezactions_row then return end
+  if tags.ezactions_nav then
+    local path = {table.unpack(s.path, 1, tags.ezactions_nav)}
+    model.move_to(pi, id, model.resolve(pi, path), path)
+  elseif tags.ezactions_row then
+    local target = model.find(pi, tags.ezactions_row)
+    if target and target.children then
+      model.move_to(pi, id, target.children, s.path)
+    elseif s.filter ~= "" then
+      return say(player, {"ezactions.no-move-filtered"})
+    else
+      model.move_before(pi, id, tags.ezactions_row)
+    end
+  end
+  refresh(player)
+end
+
+if dnd then
+  dnd.on_drop(function(player, payload, target)
+    if type(payload) == "table" and payload.kind == "ezactions-row" and target and target.valid then
+      E.drop(player, payload.id, target.tags)
+    end
+  end)
 end
 
 function E.delete(player)

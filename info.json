@@ -1,11 +1,12 @@
 {
   "name": "ez-actions",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "title": "EZ Actions",
   "author": "mtopfox",
   "factorio_version": "2.0",
   "description": "A radial menu for anything you do often (port of the Minecraft mod EZ Actions by z2six). Hold U, flick the mouse toward a slice, let go. Slices fire any of the game's controls or another mod's keybind, a shortcut-bar shortcut, a direct hotkey, chat commands, or equip a saved loadout. Nested bundles with their own keys, an in-game editor, import/export, and a remote API. Controls, hotkeys and commands need the FSE loader.",
   "dependencies": [
-    "base >= 2.0"
+    "base >= 2.0",
+    "? fse-std >= 0.3.0"
   ]
 }

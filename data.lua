@@ -14,3 +14,14 @@ for i = 1, 10 do
   data:extend({{type = "custom-input", name = "ezactions-bundle-" .. i, key_sequence = "", order = "f" .. string.format("%02d", i),
                 localised_name = {"controls.ezactions-bundle", tostring(i)}}})
 end
+
+-- the drawn ring (white, tinted in game): see test/make_images.py
+local function sprite(name, file)
+  return {type = "sprite", name = name, filename = "__ez-actions__/graphics/ring/" .. file, size = 512}
+end
+data:extend({sprite("ezactions-ring", "ring.png"), sprite("ezactions-ring-outline", "outline.png")})
+for _, gap in pairs({"none", "small", "large"}) do
+  for n = 1, 32 do
+    data:extend({sprite("ezactions-sector-" .. gap .. "-" .. n, "sector-" .. gap .. "-" .. n .. ".png")})
+  end
+end
