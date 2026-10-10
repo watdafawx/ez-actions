@@ -150,6 +150,13 @@ steps[364] = function(p)
   items = picker(p, "control", "@nomodlikethis")
   check("unknown mod: nothing", #items == 0)
 end
+-- every new-entry form opens (a new bundle's checkbox once had no state)
+steps[366] = function(p)
+  for _, kind in ipairs({"KEY", "COMMAND", "EQUIP", "bundle"}) do
+    local ok, err = pcall(R, "open_editor", 1, {add = kind})
+    check("new " .. kind .. " form opens", ok, err)
+  end
+end
 steps[370] = function(p)
   mock()
   check("seen", true, table.concat(seen, ","))

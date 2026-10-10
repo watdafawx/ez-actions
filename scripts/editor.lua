@@ -373,7 +373,7 @@ local function edit(player, kind, item)
     section.add({type = "button", caption = {"ezactions.record-gear"}, tags = {ezactions_ed = "record_gear"},
                  tooltip = {"ezactions.record-gear-tip"}})
   elseif kind == "bundle" then
-    section.add({type = "checkbox", name = "ezactions_hide", caption = {"ezactions.hide"}, state = item and item.hide == true,
+    section.add({type = "checkbox", name = "ezactions_hide", caption = {"ezactions.hide"}, state = (item and item.hide) == true,
                  tooltip = {"ezactions.hide-tip"}})
     local f = section.add({type = "flow", direction = "horizontal"})
     f.add({type = "label", caption = {"ezactions.keybind"}, tooltip = {"ezactions.keybind-tip"}})
@@ -388,9 +388,11 @@ local function edit(player, kind, item)
   bottom.add({type = "button", style = "confirm_button", caption = {"ezactions.save"}, tags = {ezactions_ed = "save"}})
 end
 
---- opens the form for a new key action, its list on `source` and filtered by `filter` (API: open_editor's opts)
-function E.add_key(player, source, filter)
-  edit(player, "KEY")
+--- opens the form for a new entry (kind: KEY, COMMAND, EQUIP or bundle); a key action's list on `source`, filtered by
+--- `filter` (API: open_editor's opts)
+function E.add(player, kind, source, filter)
+  edit(player, kind)
+  if kind ~= "KEY" then return end
   local s = st(player.index)
   s.edit.source, s.edit.choice_filter = source or "control", filter
   key_section(player, s, s.right.children[3])

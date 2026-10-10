@@ -75,7 +75,7 @@ New FSE pieces this mod added: `std.press` / `std.key_info` / held keys in `std.
 | write | `add_action(pi, path, title, note, icon, action, locked)`, `add_bundle(pi, path, title, note, icon, hide, keybind, locked)`, `ensure_bundles(pi, path)`, `move_within(pi, path, from, to)`, `move_to(pi, id, path)`, `remove_by_id(pi, id, ignore_lock)`, `update_meta(pi, id, title, note, icon)`, `replace_action(pi, id, action)`, `set_bundle_flags(pi, id, hide, keybind)`, `set_locked(pi, id, locked)`, `upsert_json(pi, path, json)` |
 | JSON | `export_all_json(pi)`, `export_bundle_json(pi, path)`, `import_into(pi, path, json)`, `replace_all(pi, json)`, `validate(pi, json)` |
 | input | `deliver(pi, action)`, `enqueue_commands(pi, lines, delay)` |
-| screens | `open_editor(pi, opts?)` (`{add = "KEY", source, filter}` opens a new key action filtered), `open_radial(pi)`, `open_radial_at_bundle(pi, title_or_id)`, `open_temporary_radial(pi, json, style)`, `preview(pi)`, `close_radial(pi)`, `radial_state(pi)` |
+| screens | `open_editor(pi, opts?)` (`{add = "KEY"|"COMMAND"|"EQUIP"|"bundle", source, filter}` opens a new entry's form), `open_radial(pi)`, `open_radial_at_bundle(pi, title_or_id)`, `open_temporary_radial(pi, json, style)`, `preview(pi)`, `close_radial(pi)`, `radial_state(pi)` |
 | events | `events()` → `{menu_changed, imported}` ids for `script.on_event` |
 
 Actions: `{type = "KEY", source = "control"|"shortcut"|"hotkey", name = "toggle-map", key = {vk, mods, name}, toggle}`,
