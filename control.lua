@@ -242,7 +242,13 @@ local api = {
     return actions.enqueue(P(pi), actions.lines(table.concat(list, "\n")), delay or 0)
   end,
   -- screens
-  open_editor = function(pi) radial.close(P(pi)) if not editor.is_open(P(pi)) then editor.open(P(pi)) end end,
+  --- opts (optional): {add = "KEY", source = "control"|"shortcut"|"hotkey", filter = "@mod words"}: straight to a new
+  --- key action's form
+  open_editor = function(pi, opts)
+    radial.close(P(pi))
+    if not editor.is_open(P(pi)) then editor.open(P(pi)) end
+    if opts and opts.add == "KEY" then editor.add_key(P(pi), opts.source, opts.filter) end
+  end,
   open_radial = function(pi) editor.close(P(pi)) return open_main(P(pi), nil, false) end,
   open_radial_at_bundle = function(pi, key)
     local b = find_bundle(pi, key)

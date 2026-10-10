@@ -226,24 +226,62 @@ local function control_name(c)
   return proto and proto.localised_name or {"?", {"controls." .. c.name}, c.name}
 end
 
+--- the mod that made a control or shortcut ("core" for the game's own controls)
+local function mod_of(kind, name)
+  local h = prototypes.get_history(kind, name)
+  return h and h.created or "core"
+end
+
+--- a control's icon: the shortcut that fires it, if one does
+local function control_icon(name)
+  for sc, proto in pairs(prototypes.shortcut) do
+    if proto.associated_control_input == name and helpers.is_valid_sprite_path("shortcut/" .. sc) then
+      return "shortcut/" .. sc
+    end
+  end
+end
+
+--- "@mod words": words match the internal name, @word the mod's name (any number of each, all must match)
+local function parse_filter(text)
+  local mods, words = {}, {}
+  for w in text:lower():gmatch("%S+") do
+    if w:sub(1, 1) == "@" then
+      if #w > 1 then mods[#mods + 1] = w:sub(2) end
+    else
+      words[#words + 1] = w
+    end
+  end
+  return function(name, mod)
+    for _, m in ipairs(mods) do if not mod:lower():find(m, 1, true) then return false end end
+    for _, w in ipairs(words) do if not name:find(w, 1, true) then return false end end
+    return true
+  end
+end
+
 local function fill_choices(player, s)
   local box = s.edit.choices
   if not (box and box.valid) then return end
-  local src, filter = s.edit.source, (s.edit.choice_filter or ""):lower()
+  local src, ok = s.edit.source, parse_filter(s.edit.choice_filter or "")
   local items, names = {}, {}
+  local function add(name, icon, label, extra, mod)
+    items[#items + 1] = {"", icon and ("[img=" .. icon .. "] ") or "", label, "  [color=128,128,128]", extra,
+                         " @", mod, "[/color]"}
+    names[#names + 1] = name
+  end
   if src == "control" then
     local mp = game.is_multiplayer()
     for _, c in ipairs(s.edit.controls) do
-      if filter == "" or c.name:find(filter, 1, true) then
-        items[#items + 1] = {"", control_name(c), mp and "" or ("  [color=128,128,128]" .. binding_text(c.keys and c.keys[1]) .. "[/color]")}
-        names[#names + 1] = c.name
+      local mod = c.modded and mod_of("custom-input", c.name) or "core"
+      if ok(c.name, mod) then
+        add(c.name, control_icon(c.name), control_name(c), mp and "" or binding_text(c.keys and c.keys[1]), mod)
       end
     end
   elseif src == "shortcut" then
     for name, proto in pairs(prototypes.shortcut) do
-      if filter == "" or name:find(filter, 1, true) then
-        items[#items + 1] = {"", proto.localised_name, "  [color=128,128,128]", name, "[/color]"}
-        names[#names + 1] = name
+      local mod = mod_of("shortcut", name)
+      if ok(name, mod) then
+        add(name, helpers.is_valid_sprite_path("shortcut/" .. name) and ("shortcut/" .. name) or nil,
+            proto.localised_name, name, mod)
       end
     end
   end
@@ -350,6 +388,14 @@ local function edit(player, kind, item)
   bottom.add({type = "button", style = "confirm_button", caption = {"ezactions.save"}, tags = {ezactions_ed = "save"}})
 end
 
+--- opens the form for a new key action, its list on `source` and filtered by `filter` (API: open_editor's opts)
+function E.add_key(player, source, filter)
+  edit(player, "KEY")
+  local s = st(player.index)
+  s.edit.source, s.edit.choice_filter = source or "control", filter
+  key_section(player, s, s.right.children[3])
+end
+
 local function find_el(root, name)
   if root.name == name then return root end
   for _, c in pairs(root.children) do
@@ -388,8 +434,9 @@ local function save(player)
       if new.title == "" then
         new.title = e.name
       end
-      if not new.icon and e.source == "shortcut" and helpers.is_valid_sprite_path("shortcut/" .. e.name) then
-        new.icon = "shortcut/" .. e.name
+      if not new.icon then
+        new.icon = e.source == "control" and control_icon(e.name)
+          or (helpers.is_valid_sprite_path("shortcut/" .. e.name) and ("shortcut/" .. e.name) or nil)
       end
     end
   elseif e.kind == "COMMAND" then

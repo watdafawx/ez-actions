@@ -1,4 +1,4 @@
-"""EZ Actions in a real game client through the fse launcher (fse/dist): the radial opened with a posted U, the mouse
+"""EZ Actions in a real game client through the fse launcher (fse/dist): the radial opened by its key (input.trigger), the mouse
 and the held key faked (std.mock), every kind of slice run. Screenshots: test/run/script-output/ez-gui-*.png.
 The window closes itself when done. Close your own game first."""
 import ctypes, json, os, shutil, subprocess, sys, time
@@ -12,13 +12,16 @@ from factorio_paths import run_dir  # noqa: E402
 RUN = run_dir(HERE / "run")
 MODS = RUN / "ez-mods-gui"
 OUT = RUN / "script-output"
+# (a second game can't start while the player's own runs: its --create fails and the player gets an error window)
+if "factorio.exe" in subprocess.run(["tasklist", "/FI", "IMAGENAME eq factorio.exe"], capture_output=True, text=True).stdout:
+    sys.exit("Factorio is running: close it first")
 shutil.rmtree(MODS, ignore_errors=True)
 MODS.mkdir(parents=True)
 shutil.copytree(MOD, MODS / "ez-actions", ignore=shutil.ignore_patterns("test", ".git"))
 shutil.copytree(HERE / "ez-guitest", MODS / "ez-guitest")
 names = ["base", "elevated-rails", "quality", "space-age", "ez-actions", "ez-guitest"]
 (MODS / "mod-list.json").write_text(json.dumps({"mods": [{"name": n, "enabled": True} for n in names]}))
-for f in OUT.glob("ez-gui*"):
+for f in OUT.glob("ez-gui*"):  # (ready, done, results, screenshots)
     f.unlink()
 save = RUN / "ez-gui.zip"
 save.unlink(missing_ok=True)
@@ -39,20 +42,23 @@ def game_window():
         p = wintypes.DWORD()
         u32.GetWindowThreadProcessId(h, ctypes.byref(p))
         if p.value in pids and u32.IsWindowVisible(h) and u32.GetWindowTextLengthW(h) > 0:
-            found.append(h)
+            r = wintypes.RECT()
+            u32.GetClientRect(h, ctypes.byref(r))
+            found.append((r.right * r.bottom, h))
         return True
     u32.EnumWindows(each, 0)
-    return found[0] if found else None
+    # (the biggest: fse's own windows, an overlay or the hub panel, belong to the process too)
+    return max(found)[1] if found else None
 
 
 game = subprocess.Popen(common + ["--load-game", str(save.resolve())], stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL)
 start = time.time()
-focused = 0
 while time.time() - start < 150 and not (OUT / "ez-gui-done.txt").exists() and game.poll() is None:
-    h = game_window() if focused < 3 else None
-    if h:
-        focused += 1  # (a few times while it loads; focusing again mid-press would reset the held modifiers)  # (posted keys count only while the game thinks it has the focus)
+    # (until the test mod is in game, then never again: focusing mid-press would reset the held modifiers)
+    ready = OUT / "ez-gui-ready.txt"
+    h = game_window() if not ready.exists() or time.time() - ready.stat().st_mtime < 1.5 else None
+    if h:  # (posted keys count only while the game thinks it has the focus)
         u32.PostMessageW(h, 0x0006, 1, 0)  # WM_ACTIVATE
         u32.PostMessageW(h, 0x0007, 0, 0)  # WM_SETFOCUS
     time.sleep(0.5)

@@ -1,4 +1,4 @@
--- real client through the fse launcher: the radial opened by pressing U (std.press), the mouse and the held key faked
+-- real client through the fse launcher: the radial opened by its key (input.trigger), the mouse and the held key faked
 -- with std.mock, each kind of slice run by letting go; screenshots to script-output/ez-gui-*.png
 local out, seen = {}, {}
 local function check(name, ok, detail)
@@ -35,7 +35,12 @@ local function slice(name) for i, n in ipairs(ROOT) do if n == name then return 
 
 -- one pick: hold U (faked), press it, point at slice i of n, let go
 local function pick(t0, i, check_fn, label)
-  steps[t0] = function(p) mock({keys = {85}}) native.call("std", "press", J({scancode = "U", hold_ms = 30})) end
+  steps[t0] = function(p)
+    -- (whatever the radial is bound to: the player's own controls reach test games through Steam)
+    mock({keys = {85}})
+    local ok, err = native.call("input", "trigger", J({control = "ezactions-radial", hold_ms = 30}))
+    if not ok then check(label .. ": trigger", false, err) end
+  end
   steps[t0 + 10] = function(p)
     local s = R("radial_state", 1)
     check(label .. ": radial opened, holding", s and s.holding, s and J(s))
@@ -105,7 +110,47 @@ steps[350] = function(p)
                {openStyle = "GROW", ringColor = -1})
   check("temporary radial", ok and R("radial_state", 1).count == 1)
 end
+-- the key action picker: icons, and @mod filters
+local function listbox(el)
+  if el.type == "list-box" then return el end
+  for _, c in pairs(el.children) do
+    local f = listbox(c)
+    if f then return f end
+  end
+end
+local function picker(p, source, filter)
+  R("open_editor", 1, {add = "KEY", source = source, filter = filter})
+  local box = listbox(p.gui.screen.ezactions_editor)
+  return box and box.items or {}
+end
+local function all_mod(items, mod)
+  for _, it in ipairs(items) do if it[7] ~= mod then return false end end
+  return #items > 0
+end
+local function names(items)
+  local t = {}
+  for _, it in ipairs(items) do t[#t + 1] = (it[2] or "") .. tostring(it[5]) end
+  return table.concat(t, ",")
+end
 steps[360] = function(p)
+  R("close_radial", 1)
+  local items = picker(p, "shortcut", "@base")
+  check("shortcuts @base: all from base", all_mod(items, "base"), #items)
+  check("shortcuts show their icon", names(items):find("[img=shortcut/give-blueprint]", 1, true) ~= nil)
+end
+steps[362] = function(p) shot(p, "ez-gui-4-picker.png") end
+steps[364] = function(p)
+  local items = picker(p, "shortcut", "@guitest")
+  check("shortcuts @guitest: just the test's", #items == 1 and items[1][5] == "ez-guitest-sc", names(items))
+  items = picker(p, "control", "@core undo")
+  check("controls @core undo", #items >= 1 and all_mod(items, "core") and names(items):find("shortcut/undo", 1, true) ~= nil,
+        names(items))
+  items = picker(p, "control", "@ez-actions bundle")
+  check("controls @ez-actions bundle: the ten bundle keys", #items == 10 and all_mod(items, "ez-actions"), #items)
+  items = picker(p, "control", "@nomodlikethis")
+  check("unknown mod: nothing", #items == 0)
+end
+steps[370] = function(p)
   mock()
   check("seen", true, table.concat(seen, ","))
   helpers.write_file("ez-gui.txt", table.concat(out, "\n"))
@@ -115,6 +160,8 @@ end
 script.on_event(defines.events.on_tick, function(e)
   local p = game.get_player(1)
   if not (p and p.character) then return end
-  local f = steps[e.tick]
+  -- (in game: the runner focuses the window for 1.5 s more, then never again; the steps start after that)
+  if e.tick == 1 then helpers.write_file("ez-gui-ready.txt", "ready") end
+  local f = e.tick > 150 and steps[e.tick - 150]
   if f then f(p) end
 end)
