@@ -186,6 +186,12 @@ for k, v in ipairs(STYLES) do
     R("close_radial", 1)
   end
 end
+-- (what the 0.2.1 migration does: a player's ring style written at run time)
+steps[460] = function(p)
+  check("migration: slot becomes solid", R("_migrate_ring_style", 1, "slot") == "solid")
+  check("migration: other styles stay", R("_migrate_ring_style", 1, "glass") == "glass")
+  R("_migrate_ring_style", 1, "solid")
+end
 steps[470] = function(p)
   mock()
   check("seen", true, table.concat(seen, ","))

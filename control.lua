@@ -101,6 +101,17 @@ script.on_event(defines.events.on_player_removed, function(e)
   end
 end)
 
+-- 0.2.0 drew the ring, but players updating kept the old default ring style ("slot", buttons): move them over once
+local function migrate_ring_style(player)
+  local s = player.mod_settings["ezactions-design"]
+  if s and s.value == "slot" then player.mod_settings["ezactions-design"] = {value = "solid"} end
+end
+script.on_configuration_changed(function(data)
+  local c = data.mod_changes["ez-actions"]
+  if not (c and c.old_version and helpers.compare_versions(c.old_version, "0.2.1") < 0) then return end
+  for _, player in pairs(game.players) do migrate_ring_style(player) end
+end)
+
 script.on_init(function()
   storage.players, storage.radial, storage.editor, storage.queued, storage.recording = {}, {}, {}, {}, {}
 end)
@@ -275,6 +286,12 @@ local api = {
     return radial.open(P(pi), {pages = {model.data(pi).menu}, root_filter = true, preview = true})
   end,
   close_radial = function(pi) radial.close(P(pi)) end,
+  -- (tests: the 0.2.1 settings migration for one player, which only this mod may write)
+  _migrate_ring_style = function(pi, from)
+    if from then P(pi).mod_settings["ezactions-design"] = {value = from} end
+    migrate_ring_style(P(pi))
+    return P(pi).mod_settings["ezactions-design"].value
+  end,
   --- the open radial: {x, y (pixels), count, selected, holding, depth}, or nil
   radial_state = function(pi)
     local s = storage.radial and storage.radial[pi]
