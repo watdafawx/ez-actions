@@ -1,0 +1,329 @@
+-- The radial: one sprite button per slice in a ring around where the key was pressed, a label in the middle.
+-- With FSE in single player the mouse direction picks the slice (no need to touch a button) and letting go of the key
+-- runs it; otherwise hovering picks, and a click, or the key again, runs it. Escape, E or right-click closes or goes
+-- back out of a bundle.
+local model = require("scripts.model")
+local actions = require("scripts.actions")
+local R = {}
+
+local DESIGN = {slot = "slot_button", button = "slot_sized_button", tool = "tool_button"}
+local FALLBACK = {KEY = "utility/play", COMMAND = "utility/rename_icon", EQUIP = "utility/equipment_grid",
+                  bundle = "utility/expand"}
+local MODIFIER_VKS = {[16] = true, [17] = true, [18] = true, [160] = true, [161] = true, [162] = true, [163] = true,
+                      [164] = true, [165] = true}
+-- (API style names, EZ Actions' and ours)
+local STYLE_KEYS = {deadzone = "deadzone", baseOuterRadius = "radius", radius = "radius",
+                    ringThickness = "button_size", button_size = "button_size", scaleStartThreshold = "scale_start",
+                    scalePerItem = "scale_per_item", designStyle = "design", design = "design",
+                    textColor = "text_color", animationsEnabled = "animations", animOpenClose = "anim_open",
+                    animHover = "anim_hover", openCloseMs = "open_ms", hoverGrowPct = "hover_grow",
+                    openStyle = "open_style", openDirection = "direction", hoverStyle = "hover_style"}
+
+local function config(player, style)
+  local s = player.mod_settings
+  local function v(name) return s["ezactions-" .. name].value end
+  local c = {deadzone = v("deadzone"), radius = v("radius"), button_size = v("button-size"),
+             scale_start = v("scale-start"), scale_per_item = v("scale-per-item"), design = v("design"),
+             text_color = v("text-color"), animations = v("animations"), anim_open = v("anim-open"),
+             anim_hover = v("anim-hover"), open_ms = v("open-ms"), hover_grow = v("hover-grow"),
+             open_style = v("open-style"), direction = v("direction"), hover_style = v("hover-style"),
+             label = v("show-hover-label"), hold = v("hold-release")}
+  for k, val in pairs(style or {}) do
+    local key = STYLE_KEYS[k]
+    if key then
+      if type(val) == "string" then val = val:lower():gsub("_", "-") end
+      if key == "button_size" and k == "ringThickness" then val = math.max(24, val) end
+      c[key] = val
+    end
+  end
+  if type(c.text_color) == "number" then -- (ARGB int, as EZ Actions stores colours)
+    local n = c.text_color % 0x100000000
+    c.text_color = {r = math.floor(n / 0x10000) % 256 / 255, g = math.floor(n / 0x100) % 256 / 255, b = n % 256 / 255}
+  end
+  if c.open_style == "fade" then c.open_style = "grow" end
+  if c.hover_style == "fill-only" then c.hover_style = "fill" elseif c.hover_style == "scale-only" then c.hover_style = "scale" end
+  return c
+end
+
+local function state(pi)
+  storage.radial = storage.radial or {}
+  return storage.radial[pi]
+end
+
+--- the mouse through FSE (single player only: input differs per computer)
+local function mouse_mode()
+  return not game.is_multiplayer() and actions.has("std", "input")
+end
+
+local function std_input()
+  local out = actions.call("std", "input", "")
+  return out and helpers.json_to_table(out)
+end
+
+local function visible(st)
+  local page = st.pages[#st.pages]
+  if #st.pages > 1 or not st.root_filter then return page end
+  local out = {}
+  for _, item in ipairs(page) do
+    if not (item.children and item.hide) then out[#out + 1] = item end
+  end
+  return out
+end
+
+local function icon_of(item)
+  local s = model.sprite(item.icon)
+  if s then return s end
+  local f = FALLBACK[item.children and "bundle" or (item.action and item.action.type)]
+  return f and helpers.is_valid_sprite_path(f) and f or nil
+end
+
+local function tooltip(item)
+  local t = {"", "[font=default-bold]", item.title, "[/font]"}
+  if item.note and item.note ~= "" then t[#t + 1] = "\n" .. item.note end
+  return t
+end
+
+local function destroy(st)
+  for _, b in pairs(st.buttons or {}) do if b.valid then b.destroy() end end
+  if st.center and st.center.valid then st.center.destroy() end
+  st.buttons, st.center = {}, nil
+end
+
+local function ease(t) return 1 - (1 - t) * (1 - t) end
+
+--- where every button goes this tick (animation and the hovered one's growth)
+local function layout(player, st)
+  local c, n = st.cfg, #st.items
+  local scale = player.display_scale
+  local r = (c.radius + math.max(0, n - c.scale_start) * c.scale_per_item) * scale
+  local dur = math.max(1, c.open_ms / 1000 * 60)
+  local t = (c.animations and c.anim_open and c.open_style ~= "none") and math.min(1, (game.tick - st.opened) / dur) or 1
+  st.animating = t < 1
+  local grow = (c.open_style == "grow") and (0.35 + 0.65 * ease(t)) or 1
+  for i, b in ipairs(st.buttons) do
+    if b.valid then
+      local order = (c.direction == "ccw") and ((n - i + 1) % n) or (i - 1)
+      b.visible = c.open_style ~= "wipe" or t >= 1 or order / n < t
+      local size = c.button_size
+      local hovered = st.sel == i and c.animations and c.anim_hover
+      if hovered and (c.hover_style == "fill-scale" or c.hover_style == "scale") then
+        size = math.floor(size * (1 + c.hover_grow))
+      end
+      b.style.size = size
+      b.toggled = st.sel == i and (c.hover_style ~= "scale" and c.hover_style ~= "none" or not (c.animations and c.anim_hover))
+      local a = (i - 1) / n * 2 * math.pi
+      local px = size * scale
+      b.location = {math.floor(st.x + math.sin(a) * r * grow - px / 2), math.floor(st.y - math.cos(a) * r * grow - px / 2)}
+    end
+  end
+  if st.center and st.center.valid then
+    local w, h = st.center_w * scale, st.center_h * scale
+    st.center.location = {math.floor(st.x - w / 2), math.floor(st.y - h / 2)}
+  end
+end
+
+local function set_label(st)
+  if not (st.center and st.center.valid) then return end
+  local item = st.sel and st.items[st.sel]
+  local title, note = st.center.ezactions_title, st.center.ezactions_note
+  title.caption = (item and st.cfg.label) and item.title or ""
+  note.caption = (item and st.cfg.label) and (item.note or "") or ""
+  note.visible = note.caption ~= ""
+end
+
+local function select(player, st, i)
+  if st.sel == i then return end
+  st.sel = i
+  set_label(st)
+  layout(player, st)
+end
+
+local function build(player, st)
+  destroy(st)
+  st.items = visible(st)
+  st.sel = nil
+  st.opened = game.tick
+  local screen, c = player.gui.screen, st.cfg
+  local n = #st.items
+  local style = DESIGN[c.design] or "slot_button"
+  for i, item in ipairs(st.items) do
+    local b = screen.add({type = "sprite-button", style = style, sprite = icon_of(item), tooltip = tooltip(item),
+                          raise_hover_events = true, tags = {ezactions_slice = i},
+                          number = item.children and #item.children or nil})
+    st.buttons[i] = b
+  end
+  local r = c.radius + math.max(0, n - c.scale_start) * c.scale_per_item
+  st.center_w = math.max(120, 2 * r - c.button_size - 8)
+  st.center_h = #st.pages > 1 and 84 or 52
+  local f = screen.add({type = "frame", name = "ezactions_radial_" .. player.index, style = "invisible_frame",
+                        direction = "vertical"})
+  f.style.width, f.style.height = st.center_w, st.center_h
+  f.style.horizontal_align, f.style.vertical_align = "center", "center"
+  if #st.pages > 1 then
+    f.add({type = "sprite-button", style = "frame_action_button", sprite = "utility/left_arrow",
+           tooltip = {"ezactions.back"}, tags = {ezactions_back = true}})
+  end
+  local title = f.add({type = "label", name = "ezactions_title", style = "heading_2_label"})
+  title.style.font_color = c.text_color
+  local note = f.add({type = "label", name = "ezactions_note"})
+  note.style.font_color = c.text_color
+  note.style.single_line = false
+  note.style.maximal_width = st.center_w
+  st.center = f
+  set_label(st)
+  layout(player, st)
+  st.guard = true
+  player.opened = f
+  st.guard = false
+end
+
+function R.close(player)
+  local st = state(player.index)
+  if not st then return end
+  storage.radial[player.index] = nil
+  st.guard = true
+  if player.opened == st.center then player.opened = nil end
+  destroy(st)
+end
+
+function R.is_open(player)
+  return state(player.index) ~= nil
+end
+
+--- opts: {pages = {list}, root_filter = bool, style = {}, x, y (pixels), hold = bool, preview = bool, temp = bool}
+function R.open(player, opts)
+  R.close(player)
+  local res = player.display_resolution
+  local st = {pages = opts.pages, root_filter = opts.root_filter, cfg = config(player, opts.style), buttons = {},
+              x = opts.x or res.width / 2, y = opts.y or res.height / 2, preview = opts.preview, temp = opts.temp}
+  if #visible(st) == 0 then
+    player.create_local_flying_text({text = {"ezactions.empty"}, create_at_cursor = true})
+    return false
+  end
+  -- (the whole ring on screen, even when the key is pressed near an edge)
+  local n, c, scale = #visible(st), st.cfg, player.display_scale
+  local m = ((c.radius + math.max(0, n - c.scale_start) * c.scale_per_item) + c.button_size) * scale
+  st.x = math.max(m, math.min(res.width - m, st.x))
+  st.y = math.max(m, math.min(res.height - m, st.y))
+  storage.radial = storage.radial or {}
+  storage.radial[player.index] = st
+  st.mouse = mouse_mode()
+  if opts.hold and st.cfg.hold and st.mouse then
+    -- (the keys held now, the radial's own: letting go of them runs the slice under the mouse)
+    local inp = std_input()
+    local keys, mods = {}, {}
+    for _, vk in ipairs(inp and inp.keys or {}) do
+      if vk > 2 then
+        local t = MODIFIER_VKS[vk] and mods or keys
+        t[#t + 1] = vk
+      end
+    end
+    st.hold = #keys > 0 and keys or (#mods > 0 and mods or nil)
+  end
+  build(player, st)
+  return true
+end
+
+function R.back(player)
+  local st = state(player.index)
+  if not st then return end
+  if #st.pages <= 1 then return R.close(player) end
+  table.remove(st.pages)
+  build(player, st)
+end
+
+function R.activate(player, i)
+  local st = state(player.index)
+  local item = st and i and st.items[i]
+  if not item then return R.close(player) end
+  if item.children then
+    st.pages[#st.pages + 1] = item.children
+    st.hold = nil -- (inside a bundle: pick with a click or the key)
+    build(player, st)
+    return
+  end
+  if st.preview then return end
+  R.close(player)
+  actions.run(player, item)
+end
+
+--- the radial key pressed again while open (click mode): run what is hovered
+function R.key(player)
+  local st = state(player.index)
+  if st then R.activate(player, st.sel) end
+end
+
+function R.tick()
+  if not storage.radial then return end
+  for pi, st in pairs(storage.radial) do
+    local player = game.get_player(pi)
+    if not player or not (st.center and st.center.valid) then
+      storage.radial[pi] = nil
+    else
+      if st.mouse then
+        local inp = std_input()
+        if inp then
+          local dx, dy = inp.x - st.x, inp.y - st.y
+          local dz = st.cfg.deadzone * player.display_scale
+          local sel
+          if dx * dx + dy * dy >= dz * dz and #st.items > 0 then
+            local a = math.atan2(dx, -dy) % (2 * math.pi)
+            local step = 2 * math.pi / #st.items
+            sel = math.floor((a + step / 2) / step) % #st.items + 1
+          end
+          select(player, st, sel)
+          if st.hold then
+            local down = {}
+            for _, vk in ipairs(inp.keys or {}) do down[vk] = true end
+            local any = false
+            for _, vk in ipairs(st.hold) do if down[vk] then any = true end end
+            if not any then
+              st.hold = nil
+              R.activate(player, st.sel)
+            end
+          end
+        end
+      end
+      st = state(pi)
+      if st then
+        if st.preview and game.tick - st.opened > st.cfg.open_ms / 1000 * 60 + 60 then st.opened = game.tick end
+        if st.animating or st.preview then layout(player, st) end
+      end
+    end
+  end
+end
+
+function R.on_click(e)
+  local tags = e.element.tags
+  local player = game.get_player(e.player_index)
+  if tags.ezactions_back then return R.back(player) end
+  if not tags.ezactions_slice then return end
+  if e.button == defines.mouse_button_type.right then return R.back(player) end
+  local st = state(e.player_index)
+  -- (with the mouse direction picking, run the picked slice even if the click landed on a neighbour)
+  R.activate(player, st and st.mouse and st.sel or tags.ezactions_slice)
+end
+
+function R.on_hover(e, entering)
+  local st = state(e.player_index)
+  local i = e.element.tags.ezactions_slice
+  if not st or st.mouse or not i then return end
+  local player = game.get_player(e.player_index)
+  if entering then select(player, st, i) elseif st.sel == i then select(player, st, nil) end
+end
+
+function R.on_closed(e)
+  local st = state(e.player_index)
+  if st and not st.guard and e.element == st.center then
+    local player = game.get_player(e.player_index)
+    -- (Escape inside a bundle steps back out; at the top it closes)
+    if #st.pages > 1 then
+      R.back(player)
+    else
+      R.close(player)
+    end
+  end
+end
+
+R.config = config
+return R
