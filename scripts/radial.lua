@@ -21,7 +21,7 @@ local STYLE_KEYS = {deadzone = "deadzone", baseOuterRadius = "radius", radius = 
                     openStyle = "open_style", openDirection = "direction", hoverStyle = "hover_style",
                     ringColor = "ring_color", ring_color = "ring_color", hoverColor = "hover_color",
                     hover_color = "hover_color", borderColor = "border_color", border_color = "border_color",
-                    sliceGapDeg = "gap", gap = "gap"}
+                    sliceGapDeg = "gap", gap = "gap", iconOutline = "outline", outline = "outline"}
 
 -- (a key binding as a virtual-key code, to see when it is let go: letters and digits are their ASCII codes)
 local VK = {SPACE = 32, TAB = 9, RETURN = 13, ESCAPE = 27, BACKSPACE = 8, GRAVE = 192, MINUS = 189, EQUALS = 187,
@@ -64,7 +64,8 @@ local function config(player, style)
              anim_hover = v("anim-hover"), open_ms = v("open-ms"), hover_grow = v("hover-grow"),
              open_style = v("open-style"), direction = v("direction"), hover_style = v("hover-style"),
              label = v("show-hover-label"), hold = v("hold-release"), gap = v("slice-gap"),
-             ring_color = v("ring-color"), hover_color = v("hover-color"), border_color = v("border-color")}
+             ring_color = v("ring-color"), hover_color = v("hover-color"), border_color = v("border-color"),
+             outline = v("icon-outline")}
   for k, val in pairs(style or {}) do
     local key = STYLE_KEYS[k]
     if key then
@@ -205,6 +206,8 @@ local function build(player, st)
     st.buttons[i] = b
   end
   local r = c.radius + math.max(0, n - c.scale_start) * c.scale_per_item
+  st.icons = {}
+  for i, item in ipairs(st.items) do st.icons[i] = icon_of(item) end
   if st.drawn then ring.build(player, st) end
   st.center_w = math.max(120, st.drawn and 2 * r * ring.INNER - 12 or 2 * r - c.button_size - 8)
   st.center_h = #st.pages > 1 and 84 or 52

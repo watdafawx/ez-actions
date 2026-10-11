@@ -13,6 +13,7 @@ local function can_drag() return dnd ~= nil and input.native() end
 E.dnd = dnd
 
 local SOURCES = {"control", "shortcut", "hotkey"}
+local OUTLINES = {false, "off", "stroke", "glow", "both"} -- (the editor's choices; false: the player's setting)
 local SLOT_NAMES = {armor = {"ezactions.slot-armor"}, gun1 = {"ezactions.slot-gun", 1}, gun2 = {"ezactions.slot-gun", 2},
                     gun3 = {"ezactions.slot-gun", 3}, ammo1 = {"ezactions.slot-ammo", 1}, ammo2 = {"ezactions.slot-ammo", 2},
                     ammo3 = {"ezactions.slot-ammo", 3}, hand = {"ezactions.slot-hand"}}
@@ -359,6 +360,13 @@ local function edit(player, kind, item)
   note.style.width = 300
   t.add({type = "label", caption = {"ezactions.icon"}})
   t.add({type = "choose-elem-button", name = "ezactions_icon", elem_type = "signal", signal = signal_of(item and item.icon)})
+  t.add({type = "label", caption = {"ezactions.outline"}, tooltip = {"ezactions.outline-tip"}})
+  local oi = 1
+  for i, v in ipairs(OUTLINES) do if item and item.outline == v then oi = i end end
+  t.add({type = "drop-down", name = "ezactions_outline", selected_index = oi,
+         items = {{"ezactions.outline-default"}, {"string-mod-setting.ezactions-icon-outline-off"},
+                  {"string-mod-setting.ezactions-icon-outline-stroke"}, {"string-mod-setting.ezactions-icon-outline-glow"},
+                  {"string-mod-setting.ezactions-icon-outline-both"}}})
   s.edit.fields = {title = title, note = note}
   local section = r.add({type = "flow", direction = "vertical"})
   if kind == "KEY" then
@@ -430,7 +438,8 @@ local function save(player)
   local note = e.fields.note.text
   local icon = icon_of_signal(find_el(r, "ezactions_icon").elem_value)
   local item = e.id and model.find(pi, e.id) or nil
-  local new = {id = e.id, title = title, note = note, icon = icon, locked = item and item.locked}
+  local new = {id = e.id, title = title, note = note, icon = icon, locked = item and item.locked,
+               outline = OUTLINES[find_el(r, "ezactions_outline").selected_index]}
   if e.kind == "bundle" then
     if title == "" then return say(player, {"ezactions.need-title"}) end
     if model.title_taken(pi, title, e.id) then return say(player, {"ezactions.title-taken", title}) end

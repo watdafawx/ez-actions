@@ -9,6 +9,8 @@ local IMG_OUTER = 250 -- (the images' outer radius in pixels; inner 150, so the 
 G.INNER = 150 / 250
 G.MAX = 32 -- (sector images exist for up to this many slices)
 local GAP_DEG = {none = 0, small = 2.5, large = 6}
+local GLOW = {1, 1, 1, 0.85}
+local ICON_PX = 32 -- (an item icon drawn at scale 1 covers a tile: 32 px at zoom 1)
 local CHAR_PX = 7 -- (the label font, default-bold, is about this wide per character at scale 1)
 
 --- the title as the middle label shows it: cut to fit inside the ring
@@ -37,14 +39,14 @@ local function draw(player, sprite, tint, orientation)
                                 orientation = orientation or 0, x_scale = 0.01, y_scale = 0.01})
 end
 
-function G.destroy(st)
-  for _, o in pairs(st.ring or {}) do
-    if type(o) == "table" then
-      for _, x in pairs(o) do if x.valid then x.destroy() end end
-    elseif o.valid then
-      o.destroy()
-    end
+local function destroy_all(t)
+  for _, o in pairs(t) do
+    if type(o) == "table" then destroy_all(o) elseif o.valid then o.destroy() end
   end
+end
+
+function G.destroy(st)
+  destroy_all(st.ring or {})
   st.ring = nil
 end
 
@@ -64,6 +66,18 @@ function G.build(player, st)
     ring.whole = draw(player, "ezactions-ring", color(G.bg(c)))
   end
   if c.design ~= "segmented" then ring.border = draw(player, "ezactions-ring-outline", color(c.border_color)) end
+  -- (behind each icon, its slice's outline or the player's: a soft white glow, and/or a black stroke made of the
+  -- icon itself drawn 8 times around it, tinted black; a white stroke can't be done, tints only darken)
+  ring.outline = {}
+  for i, item in ipairs(st.items) do
+    local mode, icon, o = item.outline or c.outline, st.icons and st.icons[i], {}
+    if icon and (mode == "glow" or mode == "both") then o.glow = draw(player, "ezactions-glow", color(GLOW)) end
+    if icon and (mode == "stroke" or mode == "both") then
+      o.stroke = {}
+      for k = 1, 8 do o.stroke[k] = draw(player, icon, color({0, 0, 0, 1})) end
+    end
+    ring.outline[i] = o
+  end
   -- (the lit slice: an arc, so growing it pushes only its outer edge out)
   ring.hover = rendering.draw_arc({color = color(c.hover_color), min_radius = 0.1, max_radius = 0.2, start_angle = 0,
                                    angle = 0.1, target = {entity = player.character}, surface = player.surface,
@@ -112,6 +126,34 @@ function G.update(player, st, r_px, t)
   end
   set(ring.border, s, c.border_color)
   if ring.border and ring.border.valid then ring.border.visible = not wiping end
+  -- (the outlines follow their icons: the ring's middle, the hovered one bigger)
+  local k = 1 / (32 * player.zoom)
+  local ds = player.display_scale
+  local ri = r_px * (1 + G.INNER) / 2
+  for i, o in pairs(ring.outline or {}) do
+    local a = (i - 1) / n * 2 * math.pi
+    local x, y = math.sin(a) * ri, -math.cos(a) * ri
+    local size = c.button_size
+    if st.sel == i and c.animations and c.anim_hover and (c.hover_style == "fill-scale" or c.hover_style == "scale") then
+      size = math.floor(size * (1 + c.hover_grow))
+    end
+    local px = size * ds
+    local order = (c.direction == "ccw") and ((n - i + 1) % n) or (i - 1)
+    local shown = not wiping or order / n < t
+    if o.glow and o.glow.valid then
+      o.glow.target = {entity = player.character, offset = {x * k, y * k}}
+      o.glow.visible = shown
+      set(o.glow, px * 2.1 / (128 * player.zoom), GLOW)
+    end
+    for j, sk in ipairs(o.stroke or {}) do
+      if sk.valid then
+        local d, b = 1.5 * ds, (j - 1) / 8 * 2 * math.pi
+        sk.target = {entity = player.character, offset = {(x + math.cos(b) * d) * k, (y + math.sin(b) * d) * k}}
+        sk.visible = shown
+        set(sk, px / (ICON_PX * player.zoom), {0, 0, 0, 1})
+      end
+    end
+  end
   local l = ring.label
   if l and l.valid then
     local item = st.sel and st.items[st.sel]
@@ -132,7 +174,7 @@ function G.update(player, st, r_px, t)
     h.visible = on
     if on then
       local k = 1 / (32 * player.zoom)
-      local grow = (c.animations and c.anim_hover and c.hover_style == "fill-scale") and c.hover_grow or 0
+      local grow = (c.animations and c.anim_hover and c.hover_style == "fill-scale") and c.hover_grow * 0.5 or 0
       local span = 2 * math.pi / n
       local gap = n > 1 and math.rad(GAP_DEG[c.gap] or 0) or 0
       h.min_radius, h.max_radius = r_px * G.INNER * k, r_px * (1 + grow) * k

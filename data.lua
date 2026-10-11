@@ -19,7 +19,8 @@ end
 local function sprite(name, file)
   return {type = "sprite", name = name, filename = "__ez-actions__/graphics/ring/" .. file, size = 512}
 end
-data:extend({sprite("ezactions-ring", "ring.png"), sprite("ezactions-ring-outline", "outline.png")})
+data:extend({sprite("ezactions-ring", "ring.png"), sprite("ezactions-ring-outline", "outline.png"),
+             {type = "sprite", name = "ezactions-glow", filename = "__ez-actions__/graphics/ring/glow.png", size = 128}})
 for _, gap in pairs({"none", "small", "large"}) do
   for n = 1, 32 do
     data:extend({sprite("ezactions-sector-" .. gap .. "-" .. n, "sector-" .. gap .. "-" .. n .. ".png")})

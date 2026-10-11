@@ -27,6 +27,7 @@ s({type = "int-setting", name = "scale-per-item", default_value = 6, minimum_val
 s({type = "string-setting", name = "design", default_value = "solid",
    allowed_values = {"solid", "segmented", "outline", "glass", "slot", "button", "tool"}})
 s({type = "string-setting", name = "slice-gap", default_value = "none", allowed_values = {"none", "small", "large"}})
+s({type = "string-setting", name = "icon-outline", default_value = "glow", allowed_values = {"off", "stroke", "glow", "both"}})
 s({type = "color-setting", name = "ring-color", default_value = {0, 0, 0, 0.67}})
 s({type = "color-setting", name = "hover-color", default_value = {0.95, 0, 0.27, 1}})
 s({type = "color-setting", name = "border-color", default_value = {1, 1, 1, 0.4}})

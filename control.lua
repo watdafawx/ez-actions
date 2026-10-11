@@ -101,15 +101,26 @@ script.on_event(defines.events.on_player_removed, function(e)
   end
 end)
 
--- 0.2.0 drew the ring, but players updating kept the old default ring style ("slot", buttons): move them over once
-local function migrate_ring_style(player)
-  local s = player.mod_settings["ezactions-design"]
-  if s and s.value == "slot" then player.mod_settings["ezactions-design"] = {value = "solid"} end
+-- Players updating keep every per-player value they had, old defaults included, so a changed default never reached
+-- them. Each entry: games from before `before` get `to` where the value is still one of the old defaults (`from`);
+-- anything else was the player's own choice and stays.
+local MIGRATIONS = {
+  {before = "0.2.1", setting = "ezactions-design", from = {slot = true}, to = "solid"}, -- (0.2.0 drew the ring)
+  {before = "0.2.3", setting = "ezactions-radius", from = {[72] = true, [100] = true, [140] = true}, to = 170},
+  {before = "0.2.3", setting = "ezactions-button-size", from = {[36] = true, [40] = true}, to = 28},
+}
+local function migrate_settings(player, old_version)
+  for _, m in ipairs(MIGRATIONS) do
+    local s = player.mod_settings[m.setting]
+    if helpers.compare_versions(old_version, m.before) < 0 and s and m.from[s.value] then
+      player.mod_settings[m.setting] = {value = m.to}
+    end
+  end
 end
 script.on_configuration_changed(function(data)
   local c = data.mod_changes["ez-actions"]
-  if not (c and c.old_version and helpers.compare_versions(c.old_version, "0.2.1") < 0) then return end
-  for _, player in pairs(game.players) do migrate_ring_style(player) end
+  if not (c and c.old_version) then return end
+  for _, player in pairs(game.players) do migrate_settings(player, c.old_version) end
 end)
 
 script.on_init(function()
@@ -286,11 +297,15 @@ local api = {
     return radial.open(P(pi), {pages = {model.data(pi).menu}, root_filter = true, preview = true})
   end,
   close_radial = function(pi) radial.close(P(pi)) end,
-  -- (tests: the 0.2.1 settings migration for one player, which only this mod may write)
-  _migrate_ring_style = function(pi, from)
-    if from then P(pi).mod_settings["ezactions-design"] = {value = from} end
-    migrate_ring_style(P(pi))
-    return P(pi).mod_settings["ezactions-design"].value
+  -- (tests: the settings migration for one player, which only this mod may write: sets `values` first, migrates as
+  -- from `old_version`, returns the values after)
+  _migrate_settings = function(pi, old_version, values)
+    local p = P(pi)
+    for k, v in pairs(values) do p.mod_settings[k] = {value = v} end
+    migrate_settings(p, old_version)
+    local out = {}
+    for k in pairs(values) do out[k] = p.mod_settings[k].value end
+    return out
   end,
   --- the open radial: {x, y (pixels), count, selected, holding, depth}, or nil
   radial_state = function(pi)

@@ -50,6 +50,9 @@ for anything you do often. Hold **U**, point the mouse at a slice, let go.
   - ring, hover, border and label colours (alpha included), slice gap, radius, icon size, growing the ring past N
     slices, deadzone;
   - open animation **wipe / fade / grow** (direction, duration), hover **light / grow / both**, hover label.
+  - icon outline on the drawn ring: a soft **white glow** behind each icon (dark icons stay readable on the dark ring,
+    the default), a **black stroke** around its shape (light icons), both, or off; each slice can pick its own in the
+    editor. (A white stroke isn't possible: Factorio's tints only darken.)
 
 Each player has their own menu (it lives in the save).
 
@@ -85,6 +88,7 @@ New FSE pieces this mod added: `std.press` / `std.key_info` / held keys in `std.
 | screens | `open_editor(pi, opts?)` (`{add = "KEY"|"COMMAND"|"EQUIP"|"bundle", source, filter}` opens a new entry's form), `open_radial(pi)`, `open_radial_at_bundle(pi, title_or_id)`, `open_temporary_radial(pi, json, style)`, `preview(pi)`, `close_radial(pi)`, `radial_state(pi)` |
 | events | `events()` → `{menu_changed, imported}` ids for `script.on_event` |
 
+An item can carry `outline = "off"|"stroke"|"glow"|"both"` (its own icon outline).
 Actions: `{type = "KEY", source = "control"|"shortcut"|"hotkey", name = "toggle-map", key = {vk, mods, name}, toggle}`,
 `{type = "COMMAND", command = "line\nline", delay, cycle}`, `{type = "EQUIP", slots = {armor = {name, quality}, gun1, ..., hand}}`.
 A temporary radial's `style` takes this mod's setting names or EZ Actions' (`openStyle`, `hoverStyle`, `deadzone`,

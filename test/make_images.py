@@ -1,6 +1,7 @@
 """Draws the radial's ring images into graphics/ (white: tinted in game). python test/make_images.py
 512 px squares centred on (256, 256), outer radius 250, inner 150: the ring, its outline, and per slice count N
-(1..32) one slice centred at the top, for each gap (sector-<gap>-<N>.png), turned into place in game."""
+(1..32) one slice centred at the top, for each gap (sector-<gap>-<N>.png), turned into place in game; and glow.png
+(128 px), the soft light behind an icon."""
 import math
 from pathlib import Path
 from PIL import Image, ImageDraw
@@ -57,6 +58,16 @@ def main():
     for gname, gap in GAPS.items():
         for n in range(1, MAX + 1):
             save(sector(360 / n, gap if n > 1 else 0), f"sector-{gname}-{n}.png")
+    # the white glow behind an icon: a soft disc, full at the middle, gone at the edge
+    g = Image.new("L", (128, 128), 0)
+    px = g.load()
+    for y in range(128):
+        for x in range(128):
+            d = math.hypot(x - 63.5, y - 63.5) / 64
+            px[x, y] = int(255 * min(1.0, 1.6 * max(0.0, 1 - d)) ** 1.2)
+    img = Image.new("RGBA", (128, 128), (255, 255, 255, 0))
+    img.putalpha(g)
+    img.save(OUT / "glow.png", optimize=True)
     print("wrote", len(list(OUT.glob("*.png"))), "images to", OUT)
 
 

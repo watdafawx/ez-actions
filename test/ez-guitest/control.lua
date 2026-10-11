@@ -172,11 +172,12 @@ for k, v in ipairs(STYLES) do
   steps[t] = function(p)
     local items = {}
     for i = 1, 8 do
-      items[i] = {title = i == 3 and "WideChests_merge-chest-selector" or ("Slice " .. i), icon = "item/iron-chest",
+      items[i] = {title = i == 3 and "WideChests_merge-chest-selector" or ("Slice " .. i), icon = i % 2 == 0 and "item/coal" or "item/iron-chest",
                   action = {type = "COMMAND", command = "eztest " .. i}}
     end
     p.zoom = k == 4 and 2 or 1 -- (zoomed in: ring, lit slice and icons must still line up)
     R("open_temporary_radial", 1, J(items), {designStyle = v[1], openStyle = v[2], sliceGapDeg = 3,
+                                            iconOutline = ({solid = "glow", segmented = "stroke", outline = "both"})[v[1]] or "off",
                                             hoverColor = v[1] == "glass" and -16733441 or nil})
     local s = R("radial_state", 1)
     check(v[1] .. ": drawn ring", s and s.drawn and s.ring, s and J(s))
@@ -191,9 +192,16 @@ for k, v in ipairs(STYLES) do
 end
 -- (what the 0.2.1 migration does: a player's ring style written at run time)
 steps[460] = function(p)
-  check("migration: slot becomes solid", R("_migrate_ring_style", 1, "slot") == "solid")
-  check("migration: other styles stay", R("_migrate_ring_style", 1, "glass") == "glass")
-  R("_migrate_ring_style", 1, "solid")
+  local D, RA, B = "ezactions-design", "ezactions-radius", "ezactions-button-size"
+  local m = R("_migrate_settings", 1, "0.2.0", {[D] = "slot", [RA] = 100, [B] = 40})
+  check("migration from 0.2.0: old defaults become new", m[D] == "solid" and m[RA] == 170 and m[B] == 28, serpent.line(m))
+  m = R("_migrate_settings", 1, "0.2.0", {[D] = "glass", [RA] = 120, [B] = 32})
+  check("migration: own choices stay", m[D] == "glass" and m[RA] == 120 and m[B] == 32, serpent.line(m))
+  m = R("_migrate_settings", 1, "0.2.2", {[D] = "slot", [RA] = 100, [B] = 40})
+  check("migration from 0.2.2: only the sizes", m[D] == "slot" and m[RA] == 170 and m[B] == 28, serpent.line(m))
+  m = R("_migrate_settings", 1, "0.2.3", {[D] = "slot", [RA] = 100, [B] = 40})
+  check("migration from 0.2.3: nothing", m[D] == "slot" and m[RA] == 100 and m[B] == 40, serpent.line(m))
+  R("_migrate_settings", 1, "9.9.9", {[D] = "solid", [RA] = 170, [B] = 28})
 end
 steps[470] = function(p)
   mock()

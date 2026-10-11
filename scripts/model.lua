@@ -102,12 +102,15 @@ local function clean_action(a)
   return nil, "unknown action type " .. tostring(t)
 end
 
+local OUTLINES = {off = true, stroke = true, glow = true, both = true}
+
 --- a checked copy of an item from outside (new ids where missing), or nil, error
 function M.clean(pi, item, depth)
   if type(item) ~= "table" then return nil, "entry is not an object" end
   if (depth or 0) > 16 then return nil, "bundles nested too deep" end
   local out = {id = type(item.id) == "string" and item.id or nil, title = str(item.title), note = str(item.note),
-               icon = type(item.icon) == "string" and item.icon or nil, locked = item.locked == true}
+               icon = type(item.icon) == "string" and item.icon or nil, locked = item.locked == true,
+               outline = OUTLINES[item.outline] and item.outline or nil}
   if item.children then
     if type(item.children) ~= "table" then return nil, "children is not an array" end
     out.id = out.id or M.new_id(pi, "bundle")
