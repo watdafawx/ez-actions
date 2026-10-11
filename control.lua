@@ -5,6 +5,20 @@ local editor = require("scripts.editor")
 
 local function player_of(e) return game.get_player(e.player_index) end
 
+-- themes (fse-std 0.6+, optional): the editor in the player's theme from fse-std's theme window. The editor
+-- rebuilds parts of itself on GUI events: after each one, its new elements are themed too.
+local theme
+if script.active_mods["fse-std"] then
+  local ok, t = pcall(require, "__fse-std__/theme")
+  theme = ok and t.adopt and t or nil
+end
+local function themed(e)
+  local player = theme and e and e.player_index and game.get_player(e.player_index)
+  local f = player and player.gui.screen.ezactions_editor
+  if f then theme.adopt(f) end
+end
+if theme then script.on_event("fstd-theme-changed", theme.handlers["fstd-theme-changed"]) end
+
 local function open_main(player, e, hold)
   return radial.open(player, {pages = {model.data(player.index).menu}, root_filter = true, hold = hold,
                               control = e and e.input_name,
@@ -37,6 +51,7 @@ script.on_event("ezactions-editor", function(e)
   local player = player_of(e)
   radial.close(player)
   editor.open(player)
+  themed(e)
 end)
 
 for i = 1, 10 do
@@ -48,7 +63,7 @@ for i = 1, 10 do
   end)
 end
 
-script.on_event("ezactions-delete", function(e) editor.delete(player_of(e)) end)
+script.on_event("ezactions-delete", function(e) editor.delete(player_of(e)); themed(e) end)
 script.on_event("ezactions-focus-search", function(e) editor.focus_search(player_of(e)) end)
 
 script.on_event(defines.events.on_lua_shortcut, function(e)
@@ -56,6 +71,7 @@ script.on_event(defines.events.on_lua_shortcut, function(e)
     local player = player_of(e)
     radial.close(player)
     editor.open(player)
+    themed(e)
   end
 end)
 
@@ -70,17 +86,22 @@ script.on_event(defines.events.on_gui_click, function(e)
   if not e.element.valid then return end
   local tags = e.element.tags
   if tags.ezactions_slice or tags.ezactions_back then return radial.on_click(e) end
-  if editor.owns(e.element) then return editor.on_click(e) end
+  if editor.owns(e.element) then
+    editor.on_click(e)
+    themed(e)
+  end
 end)
 script.on_event(defines.events.on_gui_hover, function(e) radial.on_hover(e, true) end)
 script.on_event(defines.events.on_gui_leave, function(e) radial.on_hover(e, false) end)
 script.on_event(defines.events.on_gui_closed, function(e) if e.element then radial.on_closed(e) end end)
-script.on_event(defines.events.on_gui_text_changed, function(e) if editor.owns(e.element) then editor.on_text(e) end end)
+script.on_event(defines.events.on_gui_text_changed, function(e)
+  if editor.owns(e.element) then editor.on_text(e); themed(e) end
+end)
 script.on_event(defines.events.on_gui_selection_state_changed, function(e)
-  if editor.owns(e.element) then editor.on_selection(e) end
+  if editor.owns(e.element) then editor.on_selection(e); themed(e) end
 end)
 script.on_event(defines.events.on_gui_checked_state_changed, function(e)
-  if editor.owns(e.element) then editor.on_checked(e) end
+  if editor.owns(e.element) then editor.on_checked(e); themed(e) end
 end)
 
 script.on_event(defines.events.on_tick, function(e)
@@ -92,7 +113,7 @@ end)
 
 script.on_event(model.changed_event, function(e)
   local player = game.get_player(e.player_index)
-  if player then editor.refresh(player) end
+  if player then editor.refresh(player); themed(e) end
 end)
 
 script.on_event(defines.events.on_player_removed, function(e)
