@@ -8,7 +8,7 @@ local function R(fn, ...) return remote.call("ezactions", fn, ...) end
 local function J(t) return helpers.table_to_json(t) end
 local function mock(t) native.call("std", "mock", t and J(t) or "") end
 local function shot(p, file)
-  game.take_screenshot({player = p, show_gui = true, path = file, resolution = {p.display_resolution.width, p.display_resolution.height}, zoom = 1})
+  game.take_screenshot({player = p, show_gui = true, path = file, resolution = {p.display_resolution.width, p.display_resolution.height}, zoom = p.zoom})
 end
 
 script.on_init(function()
@@ -172,8 +172,10 @@ for k, v in ipairs(STYLES) do
   steps[t] = function(p)
     local items = {}
     for i = 1, 8 do
-      items[i] = {title = "Slice " .. i, icon = "item/iron-chest", action = {type = "COMMAND", command = "eztest " .. i}}
+      items[i] = {title = i == 3 and "WideChests_merge-chest-selector" or ("Slice " .. i), icon = "item/iron-chest",
+                  action = {type = "COMMAND", command = "eztest " .. i}}
     end
+    p.zoom = k == 4 and 2 or 1 -- (zoomed in: ring, lit slice and icons must still line up)
     R("open_temporary_radial", 1, J(items), {designStyle = v[1], openStyle = v[2], sliceGapDeg = 3,
                                             hoverColor = v[1] == "glass" and -16733441 or nil})
     local s = R("radial_state", 1)
@@ -184,6 +186,7 @@ for k, v in ipairs(STYLES) do
   steps[t + 14] = function(p)
     check(v[1] .. ": slice under the mouse", R("radial_state", 1).selected == 3, R("radial_state", 1).selected)
     R("close_radial", 1)
+    p.zoom = 1
   end
 end
 -- (what the 0.2.1 migration does: a player's ring style written at run time)

@@ -20,8 +20,8 @@ s({type = "double-setting", name = "hover-grow", default_value = 0.15, minimum_v
 s({type = "int-setting", name = "open-ms", default_value = 125, minimum_value = 0, maximum_value = 2000})
 -- Design
 s({type = "int-setting", name = "deadzone", default_value = 18, minimum_value = 0, maximum_value = 90})
-s({type = "int-setting", name = "radius", default_value = 140, minimum_value = 24, maximum_value = 512})
-s({type = "int-setting", name = "button-size", default_value = 36, minimum_value = 24, maximum_value = 128})
+s({type = "int-setting", name = "radius", default_value = 170, minimum_value = 24, maximum_value = 512})
+s({type = "int-setting", name = "button-size", default_value = 28, minimum_value = 24, maximum_value = 128})
 s({type = "int-setting", name = "scale-start", default_value = 8, minimum_value = 0, maximum_value = 128})
 s({type = "int-setting", name = "scale-per-item", default_value = 6, minimum_value = 0, maximum_value = 100})
 s({type = "string-setting", name = "design", default_value = "solid",

@@ -177,7 +177,7 @@ local function set_label(st)
   if not (st.center and st.center.valid) then return end
   local item = st.sel and st.items[st.sel]
   local title, note = st.center.ezactions_title, st.center.ezactions_note
-  title.caption = (item and st.cfg.label) and item.title or ""
+  title.caption = (item and st.cfg.label) and (st.drawn and ring.title(item, st.r_px or 0, st.ds or 1) or item.title) or ""
   note.caption = (item and st.cfg.label) and (item.note or "") or ""
   note.visible = note.caption ~= ""
 end
@@ -198,7 +198,8 @@ local function build(player, st)
   local n = #st.items
   local style = st.drawn and "transparent_slot" or DESIGN[c.design] or "slot_button"
   for i, item in ipairs(st.items) do
-    local b = screen.add({type = "sprite-button", style = style, sprite = icon_of(item), tooltip = tooltip(item),
+    local b = screen.add({type = "sprite-button", style = style, sprite = icon_of(item),
+                          tooltip = not st.drawn and tooltip(item) or nil, -- (the drawn ring's label says it)
                           raise_hover_events = true, tags = {ezactions_slice = i},
                           number = item.children and #item.children or nil})
     st.buttons[i] = b
@@ -215,7 +216,8 @@ local function build(player, st)
     f.add({type = "sprite-button", style = "frame_action_button", sprite = "utility/left_arrow",
            tooltip = {"ezactions.back"}, tags = {ezactions_back = true}})
   end
-  local title = f.add({type = "label", name = "ezactions_title", style = "heading_2_label"})
+  st.r_px, st.ds = (c.radius + math.max(0, n - c.scale_start) * c.scale_per_item) * player.display_scale, player.display_scale
+  local title = f.add({type = "label", name = "ezactions_title", style = st.drawn and "bold_label" or "heading_2_label"})
   title.style.font_color = c.text_color
   local note = f.add({type = "label", name = "ezactions_note"})
   note.style.font_color = c.text_color

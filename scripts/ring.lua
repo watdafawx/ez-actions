@@ -8,6 +8,16 @@ local G = {}
 local IMG_OUTER = 250 -- (the images' outer radius in pixels; inner 150, so the ring is 40 % of the radius thick)
 G.INNER = 150 / 250
 G.MAX = 32 -- (sector images exist for up to this many slices)
+local GAP_DEG = {none = 0, small = 2.5, large = 6}
+local CHAR_PX = 7 -- (the label font, default-bold, is about this wide per character at scale 1)
+
+--- the title as the middle label shows it: cut to fit inside the ring
+function G.title(item, r_px, ds)
+  local max = math.max(4, math.floor(2 * r_px * G.INNER * 0.85 / (CHAR_PX * ds)))
+  local t = item.title or ""
+  if #t > max then t = t:sub(1, max - 1) .. "…" end
+  return t
+end
 
 --- a tint for rendering: Factorio blends premultiplied, so the colour is scaled by its alpha
 local function color(c, alpha_mul)
@@ -54,10 +64,10 @@ function G.build(player, st)
     ring.whole = draw(player, "ezactions-ring", color(G.bg(c)))
   end
   if c.design ~= "segmented" then ring.border = draw(player, "ezactions-ring-outline", color(c.border_color)) end
-  if sectors then
-    ring.hover = draw(player, "ezactions-sector-" .. (c.gap or "none") .. "-" .. n, color(c.hover_color), 0)
-    ring.hover.visible = false
-  end
+  -- (the lit slice: an arc, so growing it pushes only its outer edge out)
+  ring.hover = rendering.draw_arc({color = color(c.hover_color), min_radius = 0.1, max_radius = 0.2, start_angle = 0,
+                                   angle = 0.1, target = {entity = player.character}, surface = player.surface,
+                                   players = {player.index}, visible = false})
   -- (a dark box behind the hover label, sized to the title each tick)
   ring.label = rendering.draw_rectangle({color = {0, 0, 0, 0.7}, filled = true, surface = player.surface,
                                          players = {player.index}, render_layer = "cursor",
@@ -107,9 +117,9 @@ function G.update(player, st, r_px, t)
     local item = st.sel and st.items[st.sel]
     l.visible = item ~= nil and c.label and not wiping
     if l.visible then
-      -- (the label's width guessed from its length: heading font, about 9 px a character)
+      -- (the label's width guessed from its length)
       local ds = player.display_scale
-      local w, ht = (#item.title * 9 + 20) * ds, 30 * ds
+      local w, ht = ((#G.title(item, r_px, ds) - 1) * CHAR_PX + 18) * ds, 22 * ds
       local k = 1 / (32 * player.zoom)
       l.left_top = {entity = player.character, offset = {-w / 2 * k, -ht / 2 * k}}
       l.right_bottom = {entity = player.character, offset = {w / 2 * k, ht / 2 * k}}
@@ -121,9 +131,15 @@ function G.update(player, st, r_px, t)
     local on = st.sel ~= nil and not wiping and (c.hover_style ~= "scale" and c.hover_style ~= "none" or not (c.animations and c.anim_hover))
     h.visible = on
     if on then
-      h.orientation = (st.sel - 1) / n
-      local grow = (c.animations and c.anim_hover and (c.hover_style == "fill-scale")) and (1 + c.hover_grow * 0.4) or 1
-      set(h, s * grow, c.hover_color)
+      local k = 1 / (32 * player.zoom)
+      local grow = (c.animations and c.anim_hover and c.hover_style == "fill-scale") and c.hover_grow or 0
+      local span = 2 * math.pi / n
+      local gap = n > 1 and math.rad(GAP_DEG[c.gap] or 0) or 0
+      h.min_radius, h.max_radius = r_px * G.INNER * k, r_px * (1 + grow) * k
+      -- (angles from east, clockwise; slice 1 is at the top)
+      h.start_angle = (st.sel - 1) * span - math.pi / 2 - span / 2 + gap / 2
+      h.angle = span - gap
+      h.color = color(c.hover_color, fade)
     end
   end
 end
