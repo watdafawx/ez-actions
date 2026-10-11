@@ -3,6 +3,12 @@
 A Factorio 2.0 port of the Minecraft mod [EZ Actions](https://github.com/z2six/EZActions) by z2six: a radial menu
 for anything you do often. Hold **U**, point the mouse at a slice, let go.
 
+## Themes
+
+The menu editor follows the theme each player picks in [FSE std](https://github.com/watdafawx/fse#themes)'s theme window (its button on the shortcut bar), when FSE std 0.6+ is installed: 12 themes, colours edited live with the FSE loader. Without FSE std it looks as before.
+
+![The menu editor in Vulcanus, Fulgora and Aquilo](images/themes.jpg)
+
 ## What a slice can do
 
 - **Key action**: fires one of

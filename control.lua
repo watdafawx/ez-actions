@@ -301,6 +301,7 @@ local api = {
     radial.close(P(pi))
     if not editor.is_open(P(pi)) then editor.open(P(pi)) end
     if opts and opts.add then editor.add(P(pi), opts.add, opts.source, opts.filter) end
+    themed({player_index = pi})
   end,
   open_radial = function(pi) editor.close(P(pi)) return open_main(P(pi), nil, false) end,
   open_radial_at_bundle = function(pi, key)
