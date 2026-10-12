@@ -1,5 +1,6 @@
 """EZ Actions in a real game client through the fse launcher (fse/dist): the radial opened by its key (input.trigger), the mouse
 and the held key faked (std.mock), every kind of slice run. Screenshots: test/run/script-output/ez-gui-*.png.
+The editor: fse-std's layout (rail, dock, gear, questions), or with --plain the game's styles without fse-std.
 The window closes itself when done. Close your own game first."""
 import ctypes, json, os, shutil, subprocess, sys, time
 from ctypes import wintypes
@@ -12,23 +13,6 @@ from factorio_paths import run_dir, watch_game  # noqa: E402
 RUN = run_dir(HERE / "run")
 MODS = RUN / "ez-mods-gui"
 OUT = RUN / "script-output"
-# (a second game can't start while the player's own runs: its --create fails and the player gets an error window)
-if "factorio.exe" in subprocess.run(["tasklist", "/FI", "IMAGENAME eq factorio.exe"], capture_output=True, text=True).stdout:
-    sys.exit("Factorio is running: close it first")
-shutil.rmtree(MODS, ignore_errors=True)
-MODS.mkdir(parents=True)
-shutil.copytree(MOD, MODS / "ez-actions", ignore=shutil.ignore_patterns("test", ".git"))
-shutil.copytree(HERE / "ez-guitest", MODS / "ez-guitest")
-shutil.copytree(MOD.parents[1] / "fse" / "mods" / "fse-std", MODS / "fse-std")  # (drag & drop in the editor)
-names = ["base", "elevated-rails", "quality", "space-age", "fse-std", "ez-actions", "ez-guitest"]
-(MODS / "mod-list.json").write_text(json.dumps({"mods": [{"name": n, "enabled": True} for n in names]}))
-for f in OUT.glob("ez-gui*"):  # (ready, done, results, screenshots)
-    f.unlink()
-save = RUN / "ez-gui.zip"
-save.unlink(missing_ok=True)
-launcher = Path(os.environ.get("FSE_DIR", MOD.parents[1] / "fse" / "dist")) / "fse-launcher.exe"
-common = [str(launcher), "--config", str(RUN / "config.ini"), "--mod-directory", str(MODS)]
-subprocess.run(common + ["--create", str(save)], capture_output=True)
 u32 = ctypes.windll.user32
 
 
@@ -50,6 +34,29 @@ def game_window():
     u32.EnumWindows(each, 0)
     # (the biggest: fse's own windows, an overlay or the hub panel, belong to the process too)
     return max(found)[1] if found else None
+
+
+# (a second game can't start while the player's own runs: its --create fails and the player gets an error window.
+# Only a game with a window counts: other tests run headless games all the time)
+if game_window():
+    sys.exit("Factorio is running: close it first")
+shutil.rmtree(MODS, ignore_errors=True)
+MODS.mkdir(parents=True)
+shutil.copytree(MOD, MODS / "ez-actions", ignore=shutil.ignore_patterns("test", ".git"))
+shutil.copytree(HERE / "ez-guitest", MODS / "ez-guitest")
+# (fse-std: drag & drop and the window layout in the editor; --plain: without it, the editor in the game's styles)
+PLAIN = "--plain" in sys.argv
+if not PLAIN:
+    shutil.copytree(MOD.parents[1] / "fse" / "mods" / "fse-std", MODS / "fse-std")
+names = ["base", "elevated-rails", "quality", "space-age"] + ([] if PLAIN else ["fse-std"]) + ["ez-actions", "ez-guitest"]
+(MODS / "mod-list.json").write_text(json.dumps({"mods": [{"name": n, "enabled": True} for n in names]}))
+for f in OUT.glob("ez-gui*"):  # (ready, done, results, screenshots)
+    f.unlink()
+save = RUN / "ez-gui.zip"
+save.unlink(missing_ok=True)
+launcher = Path(os.environ.get("FSE_DIR", MOD.parents[1] / "fse" / "dist")) / "fse-launcher.exe"
+common = [str(launcher), "--config", str(RUN / "config.ini"), "--mod-directory", str(MODS)]
+subprocess.run(common + ["--create", str(save)], capture_output=True)
 
 
 game = watch_game(common + ["--load-game", str(save.resolve())])

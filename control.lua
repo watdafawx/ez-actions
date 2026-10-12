@@ -7,17 +7,12 @@ local function player_of(e) return game.get_player(e.player_index) end
 
 -- themes (fse-std 0.6+, optional): the editor in the player's theme from fse-std's theme window. The editor
 -- rebuilds parts of itself on GUI events: after each one, its new elements are themed too.
-local theme
-if script.active_mods["fse-std"] then
-  local ok, t = pcall(require, "__fse-std__/theme")
-  theme = ok and t.adopt and t or nil
-end
+local theme = editor.theme
 local function themed(e)
-  local player = theme and e and e.player_index and game.get_player(e.player_index)
-  local f = player and player.gui.screen.ezactions_editor
-  if f then theme.adopt(f) end
+  if theme and e and e.player_index then editor.adopt(game.get_player(e.player_index)) end
 end
-if theme then script.on_event("fstd-theme-changed", theme.handlers["fstd-theme-changed"]) end
+-- (with fse-std's window library the handlers are chained in at the end of this file)
+if theme and not editor.window then script.on_event("fstd-theme-changed", theme.handlers["fstd-theme-changed"]) end
 
 local function open_main(player, e, hold)
   return radial.open(player, {pages = {model.data(player.index).menu}, root_filter = true, hold = hold,
@@ -43,8 +38,7 @@ end
 script.on_event("ezactions-radial", function(e)
   local player = player_of(e)
   if radial.is_open(player) then return radial.key(player) end
-  if editor.is_open(player) then editor.close(player) end
-  open_main(player, e, true)
+  open_main(player, e, true)  -- (over the editor too: it stays, and gets Esc back after)
 end)
 
 script.on_event("ezactions-editor", function(e)
@@ -117,8 +111,17 @@ script.on_event(model.changed_event, function(e)
 end)
 
 script.on_event(defines.events.on_player_removed, function(e)
-  for _, t in pairs({storage.players, storage.radial, storage.editor, storage.queued, storage.recording}) do
+  for _, t in pairs({storage.players, storage.radial, storage.editor, storage.queued, storage.recording,
+                     storage.type_names or {}}) do
     t[e.player_index] = nil
+  end
+end)
+
+-- translations: titles of key actions saved without one, the type names the editor's list compares titles with
+script.on_event(defines.events.on_string_translated, function(e)
+  if model.translated(e) == "types" then
+    local player = game.get_player(e.player_index)
+    if player then editor.refresh(player); themed(e) end
   end
 end)
 
@@ -129,6 +132,7 @@ local MIGRATIONS = {
   {before = "0.2.1", setting = "ezactions-design", from = {slot = true}, to = "solid"}, -- (0.2.0 drew the ring)
   {before = "0.2.3", setting = "ezactions-radius", from = {[72] = true, [100] = true, [140] = true}, to = 170},
   {before = "0.2.3", setting = "ezactions-button-size", from = {[36] = true, [40] = true}, to = 28},
+  {before = "0.3.0", setting = "ezactions-button-size", from = {[28] = true}, to = 40}, -- (28 looked lost in the ring)
 }
 local function migrate_settings(player, old_version)
   for _, m in ipairs(MIGRATIONS) do
@@ -174,6 +178,7 @@ end
 local function add(pi, path, item)
   local clean, err = model.clean(pi, item)
   if not clean then return nil, err end
+  model.name_later(game.get_player(pi), clean)  -- (no title: the game's name for what it fires)
   if clean.children and model.title_taken(pi, clean.title) then return nil, "bundle title taken" end
   local l = list_of(pi, path)
   l[#l + 1] = clean
@@ -337,5 +342,15 @@ local api = {
   end,
   -- events: script.on_event(remote.call("ezactions", "events").menu_changed, fn)
   events = function() return {menu_changed = model.changed_event, imported = model.imported_event} end,
+  -- (tests: the editor as its buttons would drive it: "select" (title), "remove", "settings", "docked" (bool);
+  -- returns its state)
+  _editor = function(pi, what, arg) return editor.test(P(pi), what, arg) end,
 }
 remote.add_interface("ezactions", api)
+
+-- fse-std's window library (0.7+): the title bar's close button, the remembered place and size, the resize grip, the
+-- frames stuck to the window, themes, questions; chained after this mod's own handlers
+if editor.window then
+  require("__fse-std__/safe").chain("ez-actions", {editor.input.handlers, editor.window.handlers, theme.handlers,
+    {["fstd-theme-changed"] = function(e) editor.on_theme(game.get_player(e.player_index)) end}})
+end

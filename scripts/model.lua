@@ -226,4 +226,64 @@ function M.sprite(icon)
   if icon and helpers.is_valid_sprite_path(icon) then return icon end
 end
 
+-- (an entry without an icon of its own: one for its kind, in the radial and the editor's list)
+local FALLBACK = {control = "utility/play", shortcut = "utility/play", hotkey = "utility/play",
+                  COMMAND = "utility/rename_icon", EQUIP = "utility/equipment_grid", bundle = "utility/expand"}
+
+--- the entry's icon, else its kind's, else nil
+function M.icon_of(item)
+  local s = M.sprite(item.icon)
+  if s then return s end
+  local a = item.action
+  local f = FALLBACK[item.children and "bundle" or (a and (a.type == "KEY" and a.source or a.type))]
+  return f and helpers.is_valid_sprite_path(f) and f or nil
+end
+
+--- what a key action fires, as the game names it (nil: a hotkey, or unknown)
+function M.action_name(a)
+  if not (a and a.type == "KEY" and a.name) then return nil end
+  if a.source == "shortcut" then
+    local p = prototypes.shortcut[a.name]
+    return p and p.localised_name
+  elseif a.source == "control" then
+    local p = prototypes.custom_input[a.name]
+    return p and p.localised_name or {"?", {"controls." .. a.name}, a.name}
+  end
+end
+
+--- an entry left without a title (it got its internal name or id): the game's name for what it fires, in the
+--- player's language. The internal name stands in until the translation comes back (on_string_translated).
+function M.name_later(player, item)
+  local a = item and item.action
+  local ls = M.action_name(a)
+  if not (ls and player and player.connected) then return end
+  if item.title ~= "" and item.title ~= a.name and item.title ~= item.id then return end
+  item.title = a.name
+  local id = player.request_translation(ls)
+  if id then
+    storage.translating = storage.translating or {}
+    storage.translating[id] = {pi = player.index, item = item.id, name = a.name}
+  end
+end
+
+--- on_string_translated: a title in, if it is still the stand-in (true: one changed), or a type name for the editor
+--- ("types")
+function M.translated(e)
+  local t = storage.translating and storage.translating[e.id]
+  if not t then return false end
+  storage.translating[e.id] = nil
+  if t.type_key then
+    if not e.translated then return false end
+    storage.type_names = storage.type_names or {}
+    storage.type_names[t.pi] = storage.type_names[t.pi] or {}
+    storage.type_names[t.pi][t.type_key] = e.result
+    return "types"
+  end
+  local item, _, _, path = M.find(t.pi, t.item)
+  if not (item and e.translated and e.result ~= "" and item.title == t.name) then return false end
+  item.title = e.result
+  M.changed(t.pi, path, "edited")
+  return true
+end
+
 return M

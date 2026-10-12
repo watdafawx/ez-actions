@@ -1,0 +1,25 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.3.0
+Date: 2026-10-12
+  Changes:
+    - With fse-std 0.7+, the editor's layout as our other mods': Add key action / command / loadout / bundle on a
+      tools rail out of its right edge, Edit, Remove, Up, Down and, apart from them, Import, Export and Preview on a
+      dock below it, the look and feel (the per-player mod settings) behind a gear by the close button, with Docked
+      first (unticked: all inside), Theme... and Reset size and place (fse-std's shared texts). It moves, resizes and
+      remembers its place. Without fse-std it looks as before. The optional fse-std dependency is now 0.7.0.
+    - The settings panel: checkboxes before their text, as in our other mods. Every setting has a description.
+    - Esc closes the editor; Preview and the radial key open the radial over it without closing it, and Esc goes back
+      to the editor after. Docked or Reset from the gear's panel no longer leaves Esc pointing at the old window.
+      Closing the editor with its X also closes an open "Remove?" question.
+    - Import, Export and Preview are greyed out while an entry's form is open.
+    - Form headings in sentence case ("New key action"); the type after a title only when the title doesn't already
+      say it ("Loadout", not "Loadout  Loadout"); entries without an icon show their kind's.
+    - Shortcut icons in the editor's lists show on dark and light themes (the game's black icons made white on a dark
+      window, the white ones of coloured shortcuts black on a light one).
+    - A key action saved without a title takes the game's name for what it fires (e.g. "Undo"), not its internal one.
+    - The ring's icons are bigger: Icon size 40 by default (28 before; a 28 left from before becomes 40).
+    - Remove and Delete ask first (a bundle goes with everything in it); without fse-std, a second click removes.
+    - Edit, Remove, Up and Down are greyed out while nothing is selected (Up / Down also at the ends).
+    - The filter has a search icon; the breadcrumb starts at "All actions".
+    - Entries without an icon line up with the rest.
+    - Edit forms scroll, with Cancel and Save always in sight.

@@ -8,8 +8,6 @@ local ring = require("scripts.ring")
 local R = {}
 
 local DESIGN = {slot = "slot_button", button = "slot_sized_button", tool = "tool_button"}
-local FALLBACK = {KEY = "utility/play", COMMAND = "utility/rename_icon", EQUIP = "utility/equipment_grid",
-                  bundle = "utility/expand"}
 local MODIFIER_VKS = {[16] = true, [17] = true, [18] = true, [160] = true, [161] = true, [162] = true, [163] = true,
                       [164] = true, [165] = true}
 -- (API style names, EZ Actions' and ours)
@@ -111,12 +109,7 @@ local function visible(st)
   return out
 end
 
-local function icon_of(item)
-  local s = model.sprite(item.icon)
-  if s then return s end
-  local f = FALLBACK[item.children and "bundle" or (item.action and item.action.type)]
-  return f and helpers.is_valid_sprite_path(f) and f or nil
-end
+local icon_of = model.icon_of
 
 local function tooltip(item)
   local t = {"", "[font=default-bold]", item.title, "[/font]"}
@@ -203,6 +196,9 @@ local function build(player, st)
                           tooltip = not st.drawn and tooltip(item) or nil, -- (the drawn ring's label says it)
                           raise_hover_events = true, tags = {ezactions_slice = i},
                           number = item.children and #item.children or nil})
+    if st.drawn then  -- (the icon fills its button: as big as the outlines drawn behind it)
+      b.style.padding = 0
+    end
     st.buttons[i] = b
   end
   local r = c.radius + math.max(0, n - c.scale_start) * c.scale_per_item
@@ -229,6 +225,7 @@ local function build(player, st)
   st.center = f
   set_label(st)
   layout(player, st)
+  if st.ret then f.tags = {fstd_return = st.ret} end  -- (fse-std keeps the window that had Esc: see R.open)
   st.guard = true
   player.opened = f
   st.guard = false
@@ -241,6 +238,12 @@ function R.close(player)
   st.guard = true
   if player.opened == st.center then player.opened = nil end
   destroy(st)
+  -- (Esc back to the window the radial took it from, fse-std's give_back)
+  if st.ret and player.opened_gui_type == defines.gui_type.none then
+    for _, c in pairs(player.gui.screen.children) do
+      if c.index == st.ret and c.valid and c.visible then player.opened = c break end
+    end
+  end
 end
 
 function R.is_open(player)
@@ -268,6 +271,10 @@ function R.open(player, opts)
     -- (the drawn ring hangs on the character, which the camera keeps in the middle of the screen)
     st.x, st.y = res.width / 2, res.height / 2
   end
+  -- (over a window of this mod that has Esc, fse-std's editor: it stays open while the radial takes Esc, and gets it
+  -- back after, as fse-std's open_child / give_back do)
+  local was = player.opened_gui_type == defines.gui_type.custom and player.opened
+  if was and was.valid and was.tags.fstd_window and was.get_mod() == script.mod_name then st.ret = was.index end
   storage.radial = storage.radial or {}
   storage.radial[player.index] = st
   st.mouse = mouse_mode()

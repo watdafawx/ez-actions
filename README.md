@@ -7,6 +7,11 @@ for anything you do often. Hold **U**, point the mouse at a slice, let go.
 
 The menu editor follows the theme each player picks in [FSE std](https://github.com/watdafawx/fse#themes)'s theme window (its button on the shortcut bar), when FSE std 0.6+ is installed: 12 themes, colours edited live with the FSE loader. Without FSE std it looks as before.
 
+With FSE std 0.7+ the editor has the layout of our other mods' windows: the **Add** buttons on a tools rail out of its
+right edge, **Edit / Remove / ▲ / ▼** and, apart from them, **Import / Export / Preview** on a dock below it, and the
+look and feel behind the **gear** by the close button (**Docked** first: unticked, everything goes back inside the
+window; **Theme...**; **Reset size and place**). It can be moved and resized (with the FSE loader) and remembers where it was.
+
 ![The menu editor in Vulcanus, Fulgora and Aquilo](images/themes.jpg)
 
 ## What a slice can do
@@ -40,8 +45,10 @@ The menu editor follows the theme each player picks in [FSE std](https://github.
   bundle you click. After a quick tap, with the setting off, without FSE, or in multiplayer: click a slice, or press
   the key again over it. Right-click, Escape or the arrow in the middle goes back out; at the top they close.
 - You keep walking while it is open.
-- **Shift+U** or the shortcut-bar button opens the **editor**: add, edit, remove, reorder (▲▼), filter (Ctrl+F),
-  Delete removes the selected entry. Click selects, click again edits, right-click opens a bundle.
+- **Shift+U** or the shortcut-bar button opens the **editor**: add, edit, remove, reorder (▲▼), filter (the box
+  with the magnifier, Ctrl+F). Click selects, click again edits, right-click opens a bundle; Edit, Remove, ▲ and ▼
+  wait for a selection. **Remove** (or Delete) asks first, and a bundle goes with everything in it (with FSE std a
+  question, Esc = no; without it, click Remove or press Delete a second time).
   **Drag & drop** (FSE with `fse-std`, single player): drag a row onto another row to put it there, onto a bundle to
   move it inside, onto a *Back to…* row to move it up. Without it: with an entry selected, the arrow beside a bundle
   (or a *Back to…* row) moves it there. Locked entries (set through JSON or the
@@ -50,7 +57,8 @@ The menu editor follows the theme each player picks in [FSE std](https://github.
   a pasted box) and adds to the current page, replacing entries with the same id; **Replace all** swaps the menu.
   EZ Actions' own field names (`hideFromMainRadial`, `delayTicks`, `cycleCommands`, ...) are read too.
 - **Preview** opens the radial looping its open animation, to tune the look.
-- Look and feel are per-player mod settings:
+- Look and feel are per-player mod settings, also in the editor's gear panel with FSE std (without it: Settings →
+  Mod settings → Per player):
   - ring style: **solid**, **segmented**, **outline**, **glass** (drawn like EZ Actions'), or **slot / button / tool**
     (Factorio buttons in a circle, which multiplayer and playing without a character always use);
   - ring, hover, border and label colours (alpha included), slice gap, radius, icon size, growing the ring past N
@@ -104,4 +112,6 @@ A temporary radial's `style` takes this mod's setting names or EZ Actions' (`ope
 
 `test\run.py`: the menu model and API, headless. `test\run_gui.py`: a real game window through the FSE launcher
 (`fse\dist`, or `FSE_DIR`): U posted to the game, the mouse and held key faked with `std.mock`, every kind of slice
-run; screenshots in `test\run\script-output`. Close your own game first.
+run, and the editor's layout (rail, dock, gear, the question before removing, Docked off); screenshots in
+`test\run\script-output`. `--plain` runs it without FSE std (the editor in the game's styles). Close your own game
+first.

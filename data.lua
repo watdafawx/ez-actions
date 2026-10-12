@@ -15,6 +15,10 @@ for i = 1, 10 do
                 localised_name = {"controls.ezactions-bundle", tostring(i)}}})
 end
 
+-- (the editor: an entry without an icon gets this see-through one, so the titles line up)
+data:extend({{type = "sprite", name = "ezactions-blank", filename = "__ez-actions__/graphics/blank.png", size = 64,
+              flags = {"gui-icon"}}})
+
 -- the drawn ring (white, tinted in game): see test/make_images.py
 local function sprite(name, file)
   return {type = "sprite", name = name, filename = "__ez-actions__/graphics/ring/" .. file, size = 512}
