@@ -8,7 +8,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 MOD = HERE.parent
 sys.path.insert(0, str(HERE))
-from factorio_paths import run_dir  # noqa: E402
+from factorio_paths import run_dir, watch_game  # noqa: E402
 RUN = run_dir(HERE / "run")
 MODS = RUN / "ez-mods-gui"
 OUT = RUN / "script-output"
@@ -52,8 +52,7 @@ def game_window():
     return max(found)[1] if found else None
 
 
-game = subprocess.Popen(common + ["--load-game", str(save.resolve())], stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL)
+game = watch_game(common + ["--load-game", str(save.resolve())])
 start = time.time()
 while time.time() - start < 150 and not (OUT / "ez-gui-done.txt").exists() and game.poll() is None:
     # (until the test mod is in game, then never again: focusing mid-press would reset the held modifiers)
