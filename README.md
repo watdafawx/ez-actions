@@ -10,9 +10,13 @@ The menu editor follows the theme each player picks in [FSE std](https://github.
 With FSE std 0.7+ the editor has the layout of our other mods' windows: the **Add** buttons on a tools rail out of its
 right edge, **Edit / Remove / ▲ / ▼** and, apart from them, **Import / Export / Preview** on a dock below it, and the
 look and feel behind the **gear** by the close button (**Docked** first: unticked, everything goes back inside the
-window; **Theme...**; **Reset size and place**). It can be moved and resized (with the FSE loader) and remembers where it was.
+window; **Size**, fse-std 0.8: the editor drawn bigger or smaller than the game's GUI; **Theme...**; **Reset size and
+place**). It can be moved and resized (with the FSE loader) and remembers where it was. Esc closes it. With FSE std
+0.8.0+ it is drawn at FSE std's **Window size** (per-player setting, or the theme window), or at its own **Size**,
+on top of the game's GUI scale, its tools rail, dock and settings with it; the radial keeps its own sizes (Ring radius,
+Icon size in the look and feel).
 
-![The menu editor in Vulcanus, Fulgora and Aquilo](images/themes.jpg)
+![The menu editor: the Add buttons on the tools rail, the dock below; the gear's panel open](images/editor.jpg)
 
 ## What a slice can do
 
@@ -113,5 +117,5 @@ A temporary radial's `style` takes this mod's setting names or EZ Actions' (`ope
 `test\run.py`: the menu model and API, headless. `test\run_gui.py`: a real game window through the FSE launcher
 (`fse\dist`, or `FSE_DIR`): U posted to the game, the mouse and held key faked with `std.mock`, every kind of slice
 run, and the editor's layout (rail, dock, gear, the question before removing, Docked off); screenshots in
-`test\run\script-output`. `--plain` runs it without FSE std (the editor in the game's styles). Close your own game
-first.
+`test\run\script-output`. `--plain` runs it without FSE std (the editor in the game's styles). It ends with the editor at
+FSE std's window scale 150 %; `--scale 2` runs it all with the game's GUI at 200 %. Close your own game first.

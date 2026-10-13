@@ -1,6 +1,7 @@
 """EZ Actions in a real game client through the fse launcher (fse/dist): the radial opened by its key (input.trigger), the mouse
 and the held key faked (std.mock), every kind of slice run. Screenshots: test/run/script-output/ez-gui-*.png.
 The editor: fse-std's layout (rail, dock, gear, questions), or with --plain the game's styles without fse-std.
+Then the editor at fse-std's window scale 150 % (on the screen?); --scale 2: the game's GUI at 200 %.
 The window closes itself when done. Close your own game first."""
 import ctypes, json, os, shutil, subprocess, sys, time
 from ctypes import wintypes
@@ -13,6 +14,24 @@ from factorio_paths import run_dir, watch_game  # noqa: E402
 RUN = run_dir(HERE / "run")
 MODS = RUN / "ez-mods-gui"
 OUT = RUN / "script-output"
+
+
+def game_gui_scale(config, scale):
+    """--scale N: the game's GUI scale in the run's config.ini (manual, N = 2 for 200 %); without it, automatic again
+    (the config is kept between runs)"""
+    lines = config.read_text(encoding="utf-8").splitlines() if config.exists() else []
+    lines = [l for l in lines if not l.startswith(("ui-scale-mode=", "custom-ui-scale="))]
+    if scale:
+        add = ["ui-scale-mode=manual-pixels", f"custom-ui-scale={scale}"]
+        if "[interface]" in lines:
+            i = lines.index("[interface]") + 1
+            lines[i:i] = add
+        else:
+            lines += ["[interface]"] + add
+    config.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+SCALE = sys.argv[sys.argv.index("--scale") + 1] if "--scale" in sys.argv else None
 u32 = ctypes.windll.user32
 
 
@@ -54,8 +73,13 @@ for f in OUT.glob("ez-gui*"):  # (ready, done, results, screenshots)
     f.unlink()
 save = RUN / "ez-gui.zip"
 save.unlink(missing_ok=True)
+# (the scale in a config of its own; the shared config.ini never keeps one, an older run's removed)
+game_gui_scale(RUN / "config.ini", None)
+CONFIG = RUN / "config-gui.ini"
+shutil.copyfile(RUN / "config.ini", CONFIG)
+game_gui_scale(CONFIG, SCALE)
 launcher = Path(os.environ.get("FSE_DIR", MOD.parents[1] / "fse" / "dist")) / "fse-launcher.exe"
-common = [str(launcher), "--config", str(RUN / "config.ini"), "--mod-directory", str(MODS)]
+common = [str(launcher), "--config", str(CONFIG), "--mod-directory", str(MODS)]
 subprocess.run(common + ["--create", str(save)], capture_output=True)
 
 

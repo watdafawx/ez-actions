@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.0
+Date: 2026-10-13
+  Changes:
+    - With fse-std 0.8, the editor follows fse-std's window scale ("Window size" in the per-player settings or the
+      theme window): drawn bigger or smaller than the game's GUI, its tools rail, dock and settings with it. Its own
+      Size is in the gear's panel, after Docked. The radial keeps its own sizes (Radius, Button size in the look and
+      feel). The optional fse-std dependency is now 0.8.0.
+    - All inside, the list follows the window's width after a resize at any window scale.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.0
 Date: 2026-10-12
   Changes:

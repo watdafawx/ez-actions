@@ -508,6 +508,9 @@ local function open_settings(player)
                          state = docked(player.index), tags = {ezactions_ed = "docked"},
                          tooltip = shared("docked-tooltip", "docked-tip")})
   dk.style.bottom_margin = 6
+  if window.size_setting then  -- (the window's own Size, fse-std 0.8: after Docked)
+    window.size_setting(scroll, WIN).parent.style.bottom_margin = 6
+  end
   for _, g in ipairs(LOOK) do
     local body = theme.fold(scroll, {g[1]}, g[3] == true)
     theme.apply(body.parent, "section", {horizontally_stretchable = true})
@@ -948,7 +951,10 @@ if window then
   window.on_resize(function(player, name, w)
     local s = name == WIN and st(player.index)
     local right = s and s.right
-    if right and right.valid and right.name == "ezactions_right" then right.style.width = math.max(300, w - INSIDE_EXTRA) end
+    if not (right and right.valid and right.name == "ezactions_right") then return end
+    -- (given at 100 %: fse-std 0.8 writes it at the window's scale and keeps it through a rescale)
+    local width = math.max(300, w - INSIDE_EXTRA)
+    if theme.style then theme.style(right, {width = width}) else right.style.width = width end
   end)
   window.on_close(function(player, name)  -- (the title bar's X: fse-std destroyed the window and what's stuck to it)
     if name ~= WIN then return end

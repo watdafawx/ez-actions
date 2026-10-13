@@ -1,5 +1,6 @@
 -- real client through the fse launcher: the radial opened by its key (input.trigger), the mouse and the held key faked
--- with std.mock, each kind of slice run by letting go; screenshots to script-output/ez-gui-*.png
+-- with std.mock, each kind of slice run by letting go; the editor at fse-std's window scale 150 %; screenshots to
+-- script-output/ez-gui-*.png
 local out, seen = {}, {}
 local function check(name, ok, detail)
   out[#out + 1] = (ok and "PASS " or "FAIL ") .. name .. (detail ~= nil and (" :: " .. tostring(detail)) or "")
@@ -309,7 +310,70 @@ steps[460 + D] = function(p)
   check("migration from 0.2.3: icons 28 -> 40", m[B] == 40, serpent.line(m))
   R("_migrate_settings", 1, "9.9.9", {[D] = "solid", [RA] = 170, [B] = 40})
 end
-steps[470 + D] = function(p)
+-- fse-std's window scale (0.8): the editor at 150 %, put back on the screen with its rail and dock from the right
+-- edge, Size in the gear's panel after Docked
+local function on_screen(p)
+  local res, out = p.display_resolution, {}
+  local w0 = p.gui.screen.ezactions_editor
+  for _, n in ipairs({"ezactions_editor", "ezactions_editor__right", "ezactions_editor__bottom"}) do
+    local el = p.gui.screen[n]
+    if el and el.location then
+      local t = el.tags
+      local w, h
+      if t.fstd_attach then w, h = t.fstd_attach.w, t.fstd_attach.h
+      elseif type(t.fstd_tweak) == "table" and t.fstd_tweak.width then w, h = t.fstd_tweak.width, t.fstd_tweak.height
+      else w, h = 600, 620 end
+      local sc = p.display_scale * (t.fstd_scale or (w0 and w0.tags.fstd_scale) or 1)
+      local x, y = el.location.x, el.location.y
+      if x < 0 or y < 0 or x + w * sc > res.width + 1 or y + h * sc > res.height + 1 then
+        out[#out + 1] = string.format("%s %d,%d %dx%d", n, x, y, w * sc, h * sc)
+      end
+    end
+  end
+  return #out == 0, string.format("%dx%d at ui %s: %s", res.width, res.height, p.display_scale,
+                                  #out == 0 and "on screen" or table.concat(out, "; "))
+end
+steps[480 + D] = function(p)
+  if not fstd then return end
+  R("open_editor", 1)
+  local f = p.gui.screen.ezactions_editor
+  if f then f.location = {9999, 60} end  -- (off the right edge, as a drag can put it)
+  check("fse-std has set_window_scale", remote.interfaces["fse-std"].set_window_scale ~= nil)
+  remote.call("fse-std", "set_window_scale", 1, 150)
+end
+steps[482 + D] = function(p)
+  if not fstd then return end
+  local f = p.gui.screen.ezactions_editor
+  local ok, detail = on_screen(p)
+  -- (at 150 %, or less where the screen is too small for it: at the game's GUI scale 200 % on 2560x1440, 100 %)
+  local sc = f and f.tags.fstd_scale
+  check("window scale 150 %: drawn at it (or capped)", sc and (sc == 1.5 or (sc < 1.5 and p.display_scale > 1.25)), sc)
+  check("window scale 150 %: editor, rail and dock on the screen", ok, detail)
+  E("settings")
+  local m = p.gui.screen.ezactions_editor__menu
+  local function find(el) if el.type == "drop-down" and el.tags.fstd_scale_pick then return el end
+    for _, c in pairs(el.children) do local r = find(c) if r then return r end end end
+  check("gear: Size", m and find(m) ~= nil)
+end
+steps[484 + D] = function(p) if fstd then shot(p, "ez-gui-6-scale150.png") end end
+steps[505 + D] = function(p)
+  if not fstd then return end
+  local m = p.gui.screen.ezactions_editor__menu
+  if m then m.destroy() end
+  E("docked", false)  -- (all inside at 150 %)
+end
+steps[507 + D] = function(p)
+  if not fstd then return end
+  local ok, detail = on_screen(p)
+  check("window scale 150 %, all inside: on the screen", ok, detail)
+  shot(p, "ez-gui-6b-scale150-inside.png")
+end
+steps[530 + D] = function(p)
+  if not fstd then return end
+  E("docked", true)
+  remote.call("fse-std", "set_window_scale", 1, 100)
+end
+steps[535 + D] = function(p)
   mock()
   check("seen", true, table.concat(seen, ","))
   helpers.write_file("ez-gui.txt", table.concat(out, "\n"))
