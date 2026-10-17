@@ -46,7 +46,7 @@ Icon size in the look and feel).
   on it, the slice under the mouse lit and its title in the middle (styles below).
 - **Release to activate** (with FSE, single player): hold the key, point at a slice, let go of the key and it runs.
   Whatever the radial is bound to counts (a mouse button too). Letting go over a bundle opens it, and inside a
-  bundle you click. After a quick tap, with the setting off, without FSE, or in multiplayer: click a slice, or press
+  bundle you click anywhere (the lit slice runs). After a quick tap, with the setting off, without FSE, or in multiplayer: click a slice, or press
   the key again over it. Right-click, Escape or the arrow in the middle goes back out; at the top they close.
 - You keep walking while it is open.
 - **Shift+U** or the shortcut-bar button opens the **editor**: add, edit, remove, reorder (▲▼), filter (the box

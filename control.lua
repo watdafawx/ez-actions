@@ -35,14 +35,25 @@ local function open_bundle(player, bundle, e, hold)
                               y = e and e.cursor_display_location and e.cursor_display_location.y})
 end
 
+-- the keys do nothing while another window has the screen (inventory, a machine, the map's train window, another
+-- mod's window...): only with nothing open, or over this mod's own windows (the editor)
+local function free(player)
+  local t = player.opened_gui_type
+  if t == defines.gui_type.none then return true end
+  local o = t == defines.gui_type.custom and player.opened
+  return o and o.valid and o.get_mod() == script.mod_name or false
+end
+
 script.on_event("ezactions-radial", function(e)
   local player = player_of(e)
   if radial.is_open(player) then return radial.key(player) end
+  if not free(player) then return end
   open_main(player, e, true)  -- (over the editor too: it stays, and gets Esc back after)
 end)
 
 script.on_event("ezactions-editor", function(e)
   local player = player_of(e)
+  if not radial.is_open(player) and not free(player) then return end
   radial.close(player)
   editor.open(player)
   themed(e)
@@ -52,6 +63,7 @@ for i = 1, 10 do
   script.on_event("ezactions-bundle-" .. i, function(e)
     local player = player_of(e)
     if radial.is_open(player) then return radial.key(player) end
+    if not free(player) then return end
     local b = find_bundle(player.index, i)
     if b then open_bundle(player, b, e, true) end
   end)

@@ -80,6 +80,19 @@ local function setup(p)
 end
 
 steps[30] = setup
+-- the key does nothing while another window is open (the inventory here)
+steps[32] = function(p)
+  p.opened = p
+  mock({keys = {85}})
+  native.call("input", "trigger", J({control = "ezactions-radial", hold_ms = 30}))
+end
+steps[42] = function(p)
+  check("inventory open: no radial", R("radial_state", 1) == nil and p.opened_gui_type == defines.gui_type.controller,
+        tostring(R("radial_state", 1) ~= nil) .. " " .. tostring(p.opened_gui_type))
+  R("close_radial", 1)
+  p.opened = nil
+  mock({keys = {}})
+end
 pick(60, slice("blueprint"), function(p) return p.cursor_stack.valid_for_read and p.cursor_stack.name == "blueprint" end, "blueprint")
 steps[95] = function(p) p.clear_cursor() end
 pick(100, slice("loadout"), function(p)
@@ -98,7 +111,24 @@ pick(300, slice("bundle"), function()
   return s and s.depth == 2 and s.count == 2 and not s.holding
 end, "bundle")
 steps[335] = function(p) shot(p, "ez-gui-2-bundle.png") end
-steps[337] = function(p) R("close_radial", 1) end
+-- inside the bundle a click anywhere runs the lit slice: pointed up (slice 1), clicked far past its icon (std.inject)
+local far
+steps[336] = function(p)
+  local s = R("radial_state", 1)
+  if not s then return end
+  far = {x = math.floor(s.x), y = math.floor(math.max(8, s.y - 2.2 * 170 * p.display_scale))}
+  mock({keys = {}, x = far.x, y = far.y})
+  native.call("std", "inject", J({focus = true, x = far.x, y = far.y}))
+end
+steps[337] = function(p)
+  if far then native.call("std", "inject", J({button = "left"})) end
+end
+steps[339] = function(p)
+  check("bundle: click off the icons runs the lit slice", has("cmd:sub") and R("radial_state", 1) == nil,
+        J({far = far, seen = seen, open = R("radial_state", 1) ~= nil}))
+  mock({keys = {}})
+  R("close_radial", 1)
+end
 steps[340] = function(p)
   R("open_editor", 1)
 end

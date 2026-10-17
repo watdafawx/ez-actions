@@ -1,7 +1,7 @@
 -- The radial: one sprite button per slice in a ring around where the key was pressed, a label in the middle.
 -- With FSE in single player the mouse direction picks the slice (no need to touch a button) and letting go of the key
--- runs it; otherwise hovering picks, and a click, or the key again, runs it. Escape, E or right-click closes or goes
--- back out of a bundle.
+-- runs it (or a click anywhere on the screen, inside a bundle); otherwise hovering picks, and a click, or the key
+-- again, runs it. Escape, E or right-click closes or goes back out of a bundle.
 local model = require("scripts.model")
 local actions = require("scripts.actions")
 local ring = require("scripts.ring")
@@ -120,8 +120,9 @@ end
 local function destroy(st)
   for _, b in pairs(st.buttons or {}) do if b.valid then b.destroy() end end
   if st.center and st.center.valid then st.center.destroy() end
+  if st.catch and st.catch.valid then st.catch.destroy() end
   ring.destroy(st)
-  st.buttons, st.center = {}, nil
+  st.buttons, st.center, st.catch = {}, nil, nil
 end
 
 local function ease(t) return 1 - (1 - t) * (1 - t) end
@@ -191,6 +192,15 @@ local function build(player, st)
   local screen, c = player.gui.screen, st.cfg
   local n = #st.items
   local style = st.drawn and "transparent_slot" or DESIGN[c.design] or "slot_button"
+  if st.mouse then
+    -- (the mouse direction picks, so a click anywhere runs the lit slice: a screen-wide catcher under the buttons, which
+    -- also keeps the click off the world)
+    local res, ds = player.display_resolution, player.display_scale
+    local w = screen.add({type = "empty-widget", tags = {ezactions_slice = 0}})
+    w.location = {0, 0}
+    w.style.width, w.style.height = math.ceil(res.width / ds), math.ceil(res.height / ds)
+    st.catch = w
+  end
   for i, item in ipairs(st.items) do
     local b = screen.add({type = "sprite-button", style = style, sprite = icon_of(item),
                           tooltip = not st.drawn and tooltip(item) or nil, -- (the drawn ring's label says it)

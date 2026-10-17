@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.2
+Date: 2026-10-17
+  Changes:
+    - Inside a bundle (with FSE, single player), a click anywhere on the screen runs the lit slice: no need to hit
+      its icon. A click in the middle closes the radial.
+---------------------------------------------------------------------------------------------------
+Version: 0.4.1
+Date: 2026-10-16
+  Changes:
+    - The radial, bundle and editor keys do nothing while another window is open (inventory, a machine, another
+      mod's window); over this mod's own editor they still work.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.0
 Date: 2026-10-13
   Changes:
